@@ -22,6 +22,33 @@ export function App() {
   const wasGeneratingRef  = useRef(false);
   const prevExecStatusRef = useRef(execState.status);
 
+  // ── Clone flow ────────────────────────────────────────────
+  const [isCloning,  setIsCloning]  = useState(false);
+  const [cloneError, setCloneError] = useState<string | null>(null);
+
+  const handleClone = async (url: string) => {
+    setIsCloning(true);
+    setCloneError(null);
+    try {
+      const res  = await fetch('/api/clone', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ url }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      const prompt =
+        `Recreate this app/page as a clean, editable FORGE project. ` +
+        `Match the design, colors, layout, and functionality.\n\n` +
+        `Source URL: ${url}\n\n${data.content}`;
+      project.sendMessage(prompt);
+    } catch (err) {
+      setCloneError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsCloning(false);
+    }
+  };
+
   // ── Plan flow ─────────────────────────────────────────────
   const [pendingPlan,   setPendingPlan]   = useState<ProjectPlan | null>(null);
   const [pendingPrompt, setPendingPrompt] = useState('');
@@ -146,6 +173,9 @@ export function App() {
           isPlanLoading={isPlanLoading}
           onConfirmPlan={handleConfirmPlan}
           onRejectPlan={handleRejectPlan}
+          onClone={handleClone}
+          isCloning={isCloning}
+          cloneError={cloneError}
         />
 
         <div className="editor-area">

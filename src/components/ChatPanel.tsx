@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, type FormEvent, type KeyboardEvent } from 
 import { Send, Square, Zap, Mic, MicOff, Paperclip } from 'lucide-react';
 import type { Message, LLMProvider, ProjectPlan } from '../types';
 import { PlanCard } from './PlanCard';
+import { ClonePanel } from './ClonePanel';
 import { useSpeech } from '../hooks/useSpeech';
 import { supportsVision } from '../lib/visionProviders';
 
@@ -98,6 +99,9 @@ interface Props {
   isPlanLoading?:       boolean;
   onConfirmPlan?:       () => void;
   onRejectPlan?:        () => void;
+  onClone?:             (url: string) => void;
+  isCloning?:           boolean;
+  cloneError?:          string | null;
 }
 
 export function ChatPanel({
@@ -113,7 +117,11 @@ export function ChatPanel({
   isPlanLoading,
   onConfirmPlan,
   onRejectPlan,
+  onClone,
+  isCloning,
+  cloneError,
 }: Props) {
+  const [activeTab, setActiveTab] = useState<'chat' | 'clone'>('chat');
   const [input, setInput]   = useState('');
   const endRef              = useRef<HTMLDivElement>(null);
   const textareaRef         = useRef<HTMLTextAreaElement>(null);
@@ -201,6 +209,30 @@ export function ChatPanel({
 
   return (
     <aside className="chat-panel">
+      {/* Tab bar */}
+      <div className="chat-tabs">
+        <button
+          className={`chat-tab${activeTab === 'chat' ? ' active' : ''}`}
+          onClick={() => setActiveTab('chat')}
+        >
+          Chat
+        </button>
+        <button
+          className={`chat-tab${activeTab === 'clone' ? ' active' : ''}`}
+          onClick={() => setActiveTab('clone')}
+        >
+          Clone URL
+        </button>
+      </div>
+
+      {activeTab === 'clone' ? (
+        <ClonePanel
+          onClone={onClone ?? (() => {})}
+          isCloning={isCloning ?? false}
+          error={cloneError ?? null}
+        />
+      ) : (<>
+
       {/* Setup notice */}
       {needsSetup && (
         <div className="api-notice">
@@ -335,6 +367,7 @@ export function ChatPanel({
           )}
         </div>
       </form>
+      </>)}
     </aside>
   );
 }
