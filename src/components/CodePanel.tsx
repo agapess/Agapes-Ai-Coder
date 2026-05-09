@@ -3,6 +3,7 @@ import { Copy, Check, FileCode } from 'lucide-react';
 import SyntaxHighlighter from 'react-syntax-highlighter';
 import type { GeneratedFile, ExecutionState, LLMProvider } from '../types';
 import { TerminalPane } from './TerminalPane';
+import { StatusBar } from './StatusBar';
 import { buildCommand, isWebFile } from '../hooks/useExecution';
 import { useAutoFix } from '../hooks/useAutoFix';
 
@@ -228,6 +229,16 @@ export function CodePanel({ files, activeFilePath, onSelectFile, streamingFile, 
           </div>
         )}
       </div>
+
+      {/* Status bar */}
+      <StatusBar
+        execStatus={execState.status}
+        exitCode={execState.exitCode}
+        autoFixStatus={autoFixState.status}
+        autoFixAttempt={autoFixState.attempt}
+        autoFixMax={autoFixState.maxAttempts}
+        lastMessage={autoFixState.lastError}
+      />
 
       {/* Drag handle */}
       <div

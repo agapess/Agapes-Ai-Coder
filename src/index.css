@@ -1144,3 +1144,16 @@ a { text-decoration: none; color: inherit; }
   background: #333;
   border-radius: 1px;
 }
+
+/* ── StatusBar ──────────────────────────────────────────────── */
+.status-bar {
+  padding: 5px 14px;
+  font-size: 11px;
+  font-family: inherit;
+  background: #0d0d18;
+  border-bottom: 1px solid #1a1a2e;
+  min-height: 26px;
+  display: flex;
+  align-items: center;
+  transition: color 0.3s;
+}
