@@ -4,5 +4,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    pool: 'vmForks',
+    include: ['src/**/*.test.{ts,tsx}'],
   },
 });
