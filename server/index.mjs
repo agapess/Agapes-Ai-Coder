@@ -7,6 +7,7 @@ import { spawn }  from 'child_process';
 import { fileURLToPath } from 'url';
 import { WebSocketServer } from 'ws';
 import { ExecutionManager } from './execution.mjs';
+import { installPackages } from './mcp/packages.mjs';
 
 const __dirname    = path.dirname(fileURLToPath(import.meta.url));
 const PROJECTS_DIR = path.join(__dirname, '..', 'projects');
@@ -345,6 +346,26 @@ app.post('/api/projects/:id/open-folder', async (req, res) => {
 
   spawn(cmd, args, { detached: true, stdio: 'ignore' }).unref();
   res.json({ ok: true, folderPath: dir });
+});
+
+app.post('/api/install-packages', async (req, res) => {
+  const { manager, packages, projectId } = req.body;
+  if (!manager || !packages?.length || !projectId) {
+    return res.status(400).json({ error: 'manager, packages, and projectId required' });
+  }
+
+  const cwd = projectDir(safeId(projectId));
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.flushHeaders();
+
+  const { success } = await installPackages({
+    manager, packages, cwd,
+    onData: (chunk) => res.write(`data: ${JSON.stringify({ text: chunk })}\n\n`),
+  });
+
+  res.write(`data: ${JSON.stringify({ done: true, success })}\n\n`);
+  res.end();
 });
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
