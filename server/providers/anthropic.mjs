@@ -1,3 +1,18 @@
+function toAnthropicMsg(m) {
+  if (m.imageData) {
+    const [header, b64] = m.imageData.split(',');
+    const media_type = header.match(/:(.*?);/)?.[1] ?? 'image/jpeg';
+    return {
+      role: m.role,
+      content: [
+        { type: 'image', source: { type: 'base64', media_type, data: b64 } },
+        { type: 'text', text: m.content || 'Recreate this design as a clean web app.' },
+      ],
+    };
+  }
+  return { role: m.role, content: m.content };
+}
+
 export class AnthropicProvider {
   #cfg;
 
@@ -43,7 +58,7 @@ export class AnthropicProvider {
       body: JSON.stringify({
         model, max_tokens: 16000, stream: true,
         system: systemPrompt,
-        messages: messages.map((m) => ({ role: m.role, content: m.content })),
+        messages: messages.map(toAnthropicMsg),
       }),
     });
 
@@ -79,5 +94,46 @@ export class AnthropicProvider {
         }
       }
     }
+  }
+
+  async generate(messages, systemPrompt) {
+    const base      = (this.#cfg.baseUrl?.trim() || process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com').replace(/\/$/, '');
+    const authToken = process.env.ANTHROPIC_AUTH_TOKEN;
+    const apiKeyVal = this.#cfg.apiKey?.trim() || process.env.ANTHROPIC_API_KEY;
+
+    if (!authToken && !apiKeyVal) {
+      throw new Error('No API key. Enter one in Settings or set ANTHROPIC_API_KEY env var.');
+    }
+
+    const headers = {
+      'content-type':      'application/json',
+      'anthropic-version': '2023-06-01',
+      'accept':            'application/json',
+    };
+    if (authToken) {
+      headers['authorization'] = `Bearer ${authToken}`;
+    } else {
+      headers['x-api-key'] = apiKeyVal;
+    }
+
+    const model = this.#cfg.model || process.env.ANTHROPIC_MODEL || 'claude-opus-4-6';
+
+    const resp = await fetch(`${base}/v1/messages`, {
+      method:  'POST',
+      headers,
+      body:    JSON.stringify({
+        model, max_tokens: 1024, stream: false,
+        system:   systemPrompt,
+        messages: messages.map(toAnthropicMsg),
+      }),
+    });
+
+    if (!resp.ok) {
+      const body = await resp.text().catch(() => '');
+      throw new Error(`Anthropic ${resp.status}: ${body || resp.statusText}`);
+    }
+
+    const data = await resp.json();
+    return data.content[0].text;
   }
 }

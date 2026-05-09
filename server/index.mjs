@@ -8,6 +8,10 @@ import { fileURLToPath } from 'url';
 import { WebSocketServer } from 'ws';
 import { ExecutionManager } from './execution.mjs';
 import { installPackages } from './mcp/packages.mjs';
+import { webSearch }      from './mcp/search.mjs';
+import { parsePlanJson }  from './providers/plan-utils.mjs';
+import { createSnapshot, listSnapshots, restoreSnapshot } from './mcp/snapshot.mjs';
+import { detectTestFramework, parseTestOutput, buildTestGenPrompt } from './mcp/tests.mjs';
 
 const __dirname    = path.dirname(fileURLToPath(import.meta.url));
 const PROJECTS_DIR = path.join(__dirname, '..', 'projects');
@@ -157,22 +161,80 @@ Output EVERY file needed. Repeat the tag for each file.
 - The lang attribute must match the file type for correct syntax highlighting
   (html, css, javascript, typescript, python, sql, bash, json, markdown, go, rust, etc.)`;
 
+const PLAN_SYSTEM_PROMPT = `You are a project planner for FORGE. The user wants to build something.
+Return ONLY valid JSON (no markdown, no explanation) in this exact shape:
+{
+  "summary":  "one sentence describing what will be built",
+  "files":    ["file1.ext", "file2.ext"],
+  "uses":     ["Technology 1", "Library 2"],
+  "features": ["feature 1", "feature 2", "feature 3"]
+}
+Keep each array to 4 items maximum. Be concise.`;
+
+// ── Plan ──────────────────────────────────────────────────────
+app.post('/api/plan', async (req, res) => {
+  const { messages, llmConfig } = req.body;
+  try {
+    const provider = createProvider(llmConfig);
+    const text     = await provider.generate(messages, PLAN_SYSTEM_PROMPT);
+    const plan     = parsePlanJson(text);
+    if (!plan) return res.status(500).json({ error: 'Could not parse plan', raw: text });
+    res.json({ plan });
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) });
+  }
+});
+
 // ── Generate ──────────────────────────────────────────────────
 app.post('/api/generate', async (req, res) => {
-  const { messages, llmConfig } = req.body;
+  const { messages, llmConfig, imageData } = req.body;
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
   try {
+    // Inject web search context into system prompt
+    let systemPrompt = SYSTEM_PROMPT;
+    const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+    if (lastUser) {
+      try {
+        const results = await webSearch({ query: lastUser.content.slice(0, 150), maxResults: 3 });
+        if (results.length > 0) {
+          const ctx = results.map((r) => `• ${r.title}: ${r.snippet}`).join('\n');
+          systemPrompt = `${SYSTEM_PROMPT}\n\n## Web Context (current documentation)\n${ctx}`;
+        }
+      } catch { /* search unavailable — proceed without */ }
+    }
+
+    const processedMessages = imageData
+      ? messages.map((m, i) =>
+          i === messages.length - 1 && m.role === 'user'
+            ? { ...m, imageData }
+            : m
+        )
+      : messages;
+
     const provider = createProvider(llmConfig);
-    await provider.stream(res, messages, SYSTEM_PROMPT);
+    await provider.stream(res, processedMessages, systemPrompt);
     res.write('data: [DONE]\n\n');
     res.end();
   } catch (err) {
     res.write(`data: ${JSON.stringify({ error: String(err.message || err) })}\n\n`);
     res.end();
+  }
+});
+
+// ── Search ────────────────────────────────────────────────────
+app.get('/api/search', async (req, res) => {
+  const q   = req.query.q;
+  const max = parseInt(req.query.max ?? '5', 10);
+  if (!q) return res.status(400).json({ error: 'q required' });
+  try {
+    const results = await webSearch({ query: q, maxResults: max });
+    res.json({ results });
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) });
   }
 });
 
@@ -366,6 +428,103 @@ app.post('/api/install-packages', async (req, res) => {
 
   res.write(`data: ${JSON.stringify({ done: true, success })}\n\n`);
   res.end();
+});
+
+// ── Auto-Tester ───────────────────────────────────────────────
+app.post('/api/projects/:id/test', async (req, res) => {
+  const { llmConfig, files } = req.body;
+  if (!files?.length) return res.status(400).json({ error: 'files required' });
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+
+  const send = (obj) => res.write(`data: ${JSON.stringify(obj)}\n\n`);
+
+  try {
+    const framework = detectTestFramework(files);
+    if (!framework) {
+      send({ error: 'Unknown test framework' });
+      return res.end();
+    }
+
+    send({ status: 'generating', framework });
+
+    const prompt   = buildTestGenPrompt(files, framework);
+    const provider = createProvider(llmConfig);
+    const testCode = await provider.generate(
+      [{ role: 'user', content: prompt }],
+      'You are a test engineer. Output only the test file content.',
+    );
+
+    // Determine test file name and runner command
+    const ext   = framework === 'pytest' ? 'py' : framework === 'vitest' ? 'ts' : 'test.js';
+    const fname = `forge_auto_test.${ext}`;
+    const id    = safeId(req.params.id);
+    const dir   = projectDir(id);
+    const fpath = path.join(dir, fname);
+
+    await fs.writeFile(fpath, testCode, 'utf-8');
+    send({ status: 'running', file: fname });
+
+    // Run the test
+    const cmdMap = {
+      jest:   ['npx', ['jest', '--no-coverage', fname]],
+      vitest: ['npx', ['vitest', 'run', fname]],
+      pytest: ['python', ['-m', 'pytest', fname, '-v']],
+    };
+    const [cmd, args] = cmdMap[framework];
+
+    let output = '';
+    await new Promise((resolve) => {
+      const proc = spawn(cmd, args, { cwd: dir, shell: true });
+      proc.stdout.on('data', (d) => { output += d; send({ chunk: d.toString() }); });
+      proc.stderr.on('data', (d) => { output += d; send({ chunk: d.toString() }); });
+      proc.on('close', resolve);
+    });
+
+    const counts = parseTestOutput(output, framework);
+    send({ status: 'done', ...counts });
+  } catch (err) {
+    send({ error: String(err.message || err) });
+  }
+  res.end();
+});
+
+// ── Snapshots ─────────────────────────────────────────────────
+app.get('/api/projects/:id/snapshots', async (req, res) => {
+  const dir = projectDir(safeId(req.params.id));
+  try {
+    const snaps = await listSnapshots(dir);
+    res.json({ snapshots: snaps });
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) });
+  }
+});
+
+app.post('/api/projects/:id/snapshots', async (req, res) => {
+  const dir   = projectDir(safeId(req.params.id));
+  const label = req.body.label ?? 'snapshot';
+  try {
+    const snap = await createSnapshot(dir, label);
+    res.json({ snapshot: snap });
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) });
+  }
+});
+
+app.post('/api/projects/:id/snapshots/:snapId/restore', async (req, res) => {
+  const dir    = projectDir(safeId(req.params.id));
+  const snapId = req.params.snapId;
+  try {
+    await restoreSnapshot(dir, snapId);
+    res.json({ ok: true });
+  } catch (err) {
+    const status = err.message?.toLowerCase().includes('invalid') ? 400 : 500;
+    res.status(status).json({ error: String(err.message || err) });
+  }
 });
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
