@@ -1,9 +1,9 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type {
-  Message, LlmConfig, LLMProvider, GeneratedFile,
+  Message, LLMProvider, GeneratedFile,
   ProjectSummary, StoredProject,
 } from '../types';
-import { DEFAULT_LLM_CONFIG, DEFAULT_LLM_PROVIDER } from '../types';
+import { DEFAULT_LLM_PROVIDER } from '../types';
 
 // ── File parsing ──────────────────────────────────────────────
 const EXT_LANG: Record<string, string> = {

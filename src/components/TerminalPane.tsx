@@ -14,7 +14,7 @@ interface Props {
   writeRef?: React.MutableRefObject<((data: string) => void) | null>;
 }
 
-export function TerminalPane({ command, status, exitCode, wsUrl, onStop, onClear, writeRef }: Props) {
+export function TerminalPane({ command, status, exitCode, onStop, onClear, writeRef }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef      = useRef<Terminal | null>(null);
   const fitRef       = useRef<FitAddon | null>(null);
@@ -24,10 +24,10 @@ export function TerminalPane({ command, status, exitCode, wsUrl, onStop, onClear
 
     const term = new Terminal({
       theme: {
-        background: '#060810',
-        foreground: '#EEEEF8',
-        cursor:     '#FF5E1A',
-        selection:  '#FF5E1A44',
+        background:          '#060810',
+        foreground:          '#EEEEF8',
+        cursor:              '#FF5E1A',
+        selectionBackground: '#FF5E1A44',
       },
       fontFamily: 'JetBrains Mono, Cascadia Code, monospace',
       fontSize:   13,

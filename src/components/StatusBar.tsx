@@ -1,4 +1,3 @@
-import React from 'react';
 import type { ExecutionStatus, AutoFixStatus } from '../types';
 
 interface Props {
