@@ -53,3 +53,60 @@ export interface ProjectSummary {
   updatedAt:  string;
   folderPath?: string;
 }
+
+// ── Execution / Sandbox ───────────────────────────────────────
+
+export type ExecutionStatus = 'idle' | 'running' | 'exited';
+
+export interface WsMessage {
+  type: 'start' | 'input' | 'kill' | 'resize' | 'output' | 'exit' | 'error';
+  // client → server
+  file?: string;
+  content?: string;
+  lang?: string;
+  cwd?: string;
+  data?: string;
+  cols?: number;
+  rows?: number;
+  // server → client
+  code?: number;
+  message?: string;
+}
+
+export interface ExecutionState {
+  status: ExecutionStatus;
+  exitCode: number | null;
+  command: string;
+}
+
+// ── Multi-LLM Provider ────────────────────────────────────────
+
+export type ProviderType =
+  | 'anthropic'
+  | 'openai'
+  | 'gemini'
+  | 'ollama'
+  | 'lmstudio'
+  | 'custom';
+
+export interface LLMProvider {
+  provider: ProviderType;
+  apiKey?: string;
+  baseUrl?: string;
+  model?: string;
+}
+
+// ── Auto-Fix ──────────────────────────────────────────────────
+
+export type AutoFixStatus =
+  | 'idle'
+  | 'fixing'
+  | 'success'
+  | 'failed';
+
+export interface AutoFixState {
+  status: AutoFixStatus;
+  attempt: number;
+  maxAttempts: number;
+  lastError: string;
+}
