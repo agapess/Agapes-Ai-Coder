@@ -8,6 +8,7 @@ import { useProject }   from './hooks/useProject';
 import { useExecution } from './hooks/useExecution';
 import { useSnapshots } from './hooks/useSnapshots';
 import { useAutoTest }  from './hooks/useAutoTest';
+import { usePlaywrightTest } from './hooks/usePlaywrightTest';
 import { detectEntryPointFromFiles } from './lib/entryPoint';
 import type { ViewMode, ProjectPlan } from './types';
 
@@ -18,6 +19,8 @@ export function App() {
   const { state: execState, run: execRun, stop: execStop, writeRef } = useExecution(project.folderPath ?? '');
   const { snapshots, refresh: refreshSnapshots, createSnapshot, restoreSnapshot } = useSnapshots(project.projectId);
   const { result: testResult, runTests, reset: resetTest } = useAutoTest(project.projectId, project.llmConfig);
+  const { result: playwrightResult, runTests: runPlaywrightTests, reset: resetPlaywright } =
+    usePlaywrightTest(project.projectId, project.llmConfig);
 
   const wasGeneratingRef  = useRef(false);
   const prevExecStatusRef = useRef(execState.status);
@@ -126,7 +129,8 @@ export function App() {
   useEffect(() => {
     refreshSnapshots();
     resetTest();
-  }, [refreshSnapshots, resetTest]);
+    resetPlaywright();
+  }, [refreshSnapshots, resetTest, resetPlaywright]);
 
   const handleSelectFile = (path: string) => {
     project.setActiveFilePath(path);
@@ -196,6 +200,8 @@ export function App() {
               onRestoreSnapshot={restoreSnapshot}
               testResult={testResult}
               onRunTests={() => runTests(project.files)}
+              playwrightResult={playwrightResult}
+              onRunPlaywrightTests={() => runPlaywrightTests(project.files)}
             />
           )}
           {(viewMode === 'preview' || viewMode === 'split') && (

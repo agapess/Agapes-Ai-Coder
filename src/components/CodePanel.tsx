@@ -1,9 +1,11 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Copy, Check, FileCode } from 'lucide-react';
+import { Copy, Check, FileCode, Clock } from 'lucide-react';
 import SyntaxHighlighter from 'react-syntax-highlighter';
-import type { GeneratedFile, ExecutionState, LLMProvider } from '../types';
+import type { GeneratedFile, ExecutionState, LLMProvider, Snapshot, TestResult } from '../types';
 import { TerminalPane } from './TerminalPane';
 import { StatusBar } from './StatusBar';
+import { SnapshotTimeline } from './SnapshotTimeline';
+import { TestBadge } from './TestBadge';
 import { buildCommand, isWebFile } from '../hooks/useExecution';
 import { useAutoFix } from '../hooks/useAutoFix';
 
@@ -37,22 +39,29 @@ const forgeTheme: Record<string, React.CSSProperties> = {
 function filename(p: string) { return p.split('/').pop() ?? p; }
 
 interface Props {
-  files:          GeneratedFile[];
-  activeFilePath: string;
-  onSelectFile:   (path: string) => void;
-  streamingFile:  { path: string; lang: string; content: string } | null;
-  isGenerating:   boolean;
-  execState:      ExecutionState;
-  onRun:          (filePath: string, content: string) => void;
-  onStop:         () => void;
-  writeRef:       React.MutableRefObject<((data: string) => void) | null>;
-  llmConfig:      LLMProvider;
-  onUpdateFile:   (path: string, content: string) => void;
+  files:              GeneratedFile[];
+  activeFilePath:     string;
+  onSelectFile:       (path: string) => void;
+  streamingFile:      { path: string; lang: string; content: string } | null;
+  isGenerating:       boolean;
+  execState:          ExecutionState;
+  onRun:              (filePath: string, content: string) => void;
+  onStop:             () => void;
+  writeRef:           React.MutableRefObject<((data: string) => void) | null>;
+  llmConfig:          LLMProvider;
+  onUpdateFile:       (path: string, content: string) => void;
+  snapshots?:         Snapshot[];
+  onRestoreSnapshot?: (id: string) => void;
+  testResult?:           TestResult;
+  onRunTests?:           () => void;
+  playwrightResult?:     TestResult;
+  onRunPlaywrightTests?: () => void;
 }
 
-export function CodePanel({ files, activeFilePath, onSelectFile, streamingFile, isGenerating, execState, onRun, onStop, writeRef, llmConfig, onUpdateFile }: Props) {
-  const [copied, setCopied] = useState(false);
-  const [termHeight, setTermHeight] = useState(0);
+export function CodePanel({ files, activeFilePath, onSelectFile, streamingFile, isGenerating, execState, onRun, onStop, writeRef, llmConfig, onUpdateFile, snapshots = [], onRestoreSnapshot, testResult, onRunTests, playwrightResult, onRunPlaywrightTests }: Props) {
+  const [copied, setCopied]           = useState(false);
+  const [termHeight, setTermHeight]   = useState(0);
+  const [showHistory, setShowHistory] = useState(false);
 
   const { state: autoFixState, attemptFix } = useAutoFix(
     llmConfig,
@@ -186,6 +195,24 @@ export function CodePanel({ files, activeFilePath, onSelectFile, streamingFile, 
         })()}
 
         <div className="code-actions">
+          {testResult && onRunTests && files.length > 0 && (
+            <TestBadge result={testResult} onRun={onRunTests} />
+          )}
+          {playwrightResult && onRunPlaywrightTests && files.some((f) => isWebFile(f.path)) && (
+            <TestBadge
+              result={playwrightResult}
+              onRun={onRunPlaywrightTests}
+              label="Browser Test"
+            />
+          )}
+          <button
+            className={`snapshot-toggle-btn${showHistory ? ' active' : ''}`}
+            onClick={() => setShowHistory((v) => !v)}
+            title="Version history"
+          >
+            <Clock size={12} />
+            {snapshots.length > 0 ? snapshots.length : ''}
+          </button>
           {displayFile && (
             <button
               className={`icon-btn${copied ? ' icon-btn--ok' : ''}`}
@@ -197,6 +224,14 @@ export function CodePanel({ files, activeFilePath, onSelectFile, streamingFile, 
           )}
         </div>
       </div>
+
+      {/* Snapshot timeline */}
+      {showHistory && (
+        <SnapshotTimeline
+          snapshots={snapshots}
+          onRestore={(id) => { onRestoreSnapshot?.(id); setShowHistory(false); }}
+        />
+      )}
 
       {/* Body */}
       <div className="code-body">
