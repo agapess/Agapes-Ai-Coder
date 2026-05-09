@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Copy, Check, FileCode } from 'lucide-react';
 import SyntaxHighlighter from 'react-syntax-highlighter';
-import type { GeneratedFile } from '../types';
+import type { GeneratedFile, ExecutionState } from '../types';
+import { TerminalPane } from './TerminalPane';
+import { buildCommand, isWebFile } from '../hooks/useExecution';
 
 // ── Custom FORGE syntax theme ─────────────────────────────────
 const forgeTheme: Record<string, React.CSSProperties> = {
@@ -38,10 +40,15 @@ interface Props {
   onSelectFile:   (path: string) => void;
   streamingFile:  { path: string; lang: string; content: string } | null;
   isGenerating:   boolean;
+  execState:      ExecutionState;
+  onRun:          (filePath: string, content: string) => void;
+  onStop:         () => void;
+  writeRef:       React.MutableRefObject<((data: string) => void) | null>;
 }
 
-export function CodePanel({ files, activeFilePath, onSelectFile, streamingFile, isGenerating }: Props) {
+export function CodePanel({ files, activeFilePath, onSelectFile, streamingFile, isGenerating, execState, onRun, onStop, writeRef }: Props) {
   const [copied, setCopied] = useState(false);
+  const [termHeight, setTermHeight] = useState(0);
 
   // Build the tab list: completed files + the in-progress one (if different)
   const tabs = streamingFile && !files.find((f) => f.path === streamingFile.path)
@@ -63,6 +70,28 @@ export function CodePanel({ files, activeFilePath, onSelectFile, streamingFile, 
       setTimeout(() => setCopied(false), 2000);
     });
   };
+
+  const handleRunClick = useCallback(() => {
+    const file = files.find((f) => f.path === activeFilePath) ?? files[0];
+    if (!file) return;
+    if (termHeight === 0) setTermHeight(220);
+    onRun(file.path, file.content);
+  }, [activeFilePath, files, onRun, termHeight]);
+
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startH = termHeight;
+    const onMove = (ev: MouseEvent) => {
+      setTermHeight(Math.max(0, Math.min(startH + (startY - ev.clientY), 600)));
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [termHeight]);
 
   return (
     <div className="code-panel">
@@ -94,6 +123,28 @@ export function CodePanel({ files, activeFilePath, onSelectFile, streamingFile, 
             );
           })}
         </div>
+
+        {/* Run button */}
+        {(() => {
+          const activeFile = files.find((f) => f.path === activeFilePath) ?? files[0];
+          if (!activeFile) return null;
+          const isWeb = isWebFile(activeFile.path);
+          const cmd = buildCommand(activeFile.path);
+          if (!isWeb && !cmd) return (
+            <span className="run-btn run-btn--disabled" title={`No runtime for this file type`}>▶ Run</span>
+          );
+          const label = isWeb ? '▶ Preview' : `▶ Run (${cmd!.split(' ')[0]})`;
+          return (
+            <button
+              className={`run-btn${execState.status === 'running' ? ' run-btn--running' : ''}`}
+              onClick={handleRunClick}
+              disabled={execState.status === 'running'}
+              title={cmd ?? 'Refresh preview'}
+            >
+              {execState.status === 'running' ? '⏳ Running…' : label}
+            </button>
+          );
+        })()}
 
         <div className="code-actions">
           {displayFile && (
@@ -139,6 +190,28 @@ export function CodePanel({ files, activeFilePath, onSelectFile, streamingFile, 
           </div>
         )}
       </div>
+
+      {/* Drag handle */}
+      <div
+        className="resize-handle"
+        onMouseDown={handleDragStart}
+        style={{ cursor: 'ns-resize' }}
+      />
+
+      {/* Terminal pane */}
+      {termHeight > 0 && (
+        <div style={{ height: termHeight, flexShrink: 0 }}>
+          <TerminalPane
+            command={execState.command}
+            status={execState.status}
+            exitCode={execState.exitCode}
+            wsUrl="ws://localhost:3001/terminal"
+            onStop={onStop}
+            onClear={() => {}}
+            writeRef={writeRef}
+          />
+        </div>
+      )}
     </div>
   );
 }

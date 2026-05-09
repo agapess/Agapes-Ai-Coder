@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { RefreshCw, ExternalLink, MonitorSmartphone, Code2 } from 'lucide-react';
 import type { GeneratedFile } from '../types';
 
@@ -6,9 +6,11 @@ interface Props {
   files:        GeneratedFile[];
   isGenerating: boolean;
   onShowCode:   () => void;
+  writeRef?:    React.MutableRefObject<((data: string) => void) | null>;
 }
 
-export function PreviewPanel({ files, isGenerating, onShowCode }: Props) {
+export function PreviewPanel({ files, isGenerating, onShowCode, writeRef }: Props) {
+  void writeRef; // reserved for Task 13 console interceptor
   const [refreshKey, setRefreshKey] = useState(0);
   const [loaded, setLoaded]         = useState(false);
   const iframeRef                   = useRef<HTMLIFrameElement>(null);

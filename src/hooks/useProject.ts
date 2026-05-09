@@ -131,6 +131,7 @@ export function useProject() {
   const [error,          setError]      = useState<string | null>(null);
   const [llmConfig,      setLlmCfgSt]  = useState<LLMProvider>(loadConfig);
   const [projects,       setProjects]   = useState<ProjectSummary[]>([]);
+  const [folderPath,     setFolderPath] = useState<string>('');
 
   const readerRef  = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
   const nameTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -198,6 +199,7 @@ export function useProject() {
       setFiles(loadedFiles);
       const firstHtml = loadedFiles.find((f) => f.path.endsWith('.html'));
       setActive(firstHtml?.path ?? loadedFiles[0]?.path ?? '');
+      setFolderPath((proj as { folderPath?: string }).folderPath ?? '');
       setError(null);
       localStorage.setItem('forge_active_project', proj.id);
     } catch { /* silent */ }
@@ -375,6 +377,7 @@ export function useProject() {
             setFiles(loadedFiles);
             const firstHtml = loadedFiles.find((f) => f.path.endsWith('.html'));
             setActive(firstHtml?.path ?? loadedFiles[0]?.path ?? '');
+            setFolderPath((proj as { folderPath?: string }).folderPath ?? '');
           }
         }
       } catch { /* server offline */ }
@@ -405,6 +408,7 @@ export function useProject() {
     setLlmConfig,
     needsSetup,
     projects,
+    folderPath,
     sendMessage,
     stopGeneration,
     newProject,

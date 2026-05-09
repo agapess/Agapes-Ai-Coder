@@ -5,11 +5,14 @@ import { ChatPanel }    from './components/ChatPanel';
 import { CodePanel }    from './components/CodePanel';
 import { PreviewPanel } from './components/PreviewPanel';
 import { useProject }   from './hooks/useProject';
+import { useExecution } from './hooks/useExecution';
 import type { ViewMode } from './types';
 
 export function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('preview');
   const project = useProject();
+
+  const { state: execState, run: execRun, stop: execStop, writeRef } = useExecution(project.folderPath ?? '');
 
   const handleSelectFile = (path: string) => {
     project.setActiveFilePath(path);
@@ -62,6 +65,10 @@ export function App() {
               onSelectFile={project.setActiveFilePath}
               streamingFile={project.streamingFile}
               isGenerating={project.isGenerating}
+              execState={execState}
+              onRun={execRun}
+              onStop={execStop}
+              writeRef={writeRef}
             />
           )}
           {(viewMode === 'preview' || viewMode === 'split') && (
@@ -69,6 +76,7 @@ export function App() {
               files={project.files}
               isGenerating={project.isGenerating}
               onShowCode={() => setViewMode('code')}
+              writeRef={writeRef}
             />
           )}
         </div>
