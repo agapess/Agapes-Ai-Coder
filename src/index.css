@@ -1157,3 +1157,220 @@ a { text-decoration: none; color: inherit; }
   align-items: center;
   transition: color 0.3s;
 }
+
+/* ── PlanCard ─────────────────────────────────────────────── */
+.plan-card {
+  background: #0e0e1a;
+  border: 1px solid #FF5E1A44;
+  border-radius: 8px;
+  padding: 14px;
+  margin: 8px 0;
+}
+.plan-card__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.plan-card__title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #FF5E1A;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.plan-card__summary {
+  font-size: 12px;
+  color: #C0C0E0;
+  margin: 0 0 10px;
+  line-height: 1.5;
+}
+.plan-card__grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.plan-card__label {
+  font-size: 9px;
+  font-weight: 700;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin-bottom: 4px;
+}
+.plan-card__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.plan-card__chip {
+  background: #1a1a2e;
+  border: 1px solid #2a2a4e;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 10px;
+  color: #8888CC;
+  font-family: 'JetBrains Mono', monospace;
+}
+.plan-card__chip--tech {
+  color: #00C4AA;
+  border-color: #00C4AA33;
+}
+.plan-card__features {
+  margin: 0;
+  padding-left: 14px;
+  font-size: 11px;
+  color: #9090B0;
+  line-height: 1.8;
+}
+.plan-card__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.plan-card__confirm {
+  background: #FF5E1A;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 16px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+}
+.plan-card__confirm:hover { background: #ff7040; }
+.plan-card__reject {
+  background: transparent;
+  color: #666;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 7px 12px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: color .15s, border-color .15s;
+}
+.plan-card__reject:hover { color: #999; border-color: #555; }
+
+/* ── Snapshot timeline ───────────────────────────────────────── */
+.snapshot-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  background: #080810;
+  border-top: 1px solid #1a1a2e;
+  max-height: 160px;
+  overflow-y: auto;
+}
+.snapshot-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 6px;
+  border-radius: 5px;
+  background: #0d0d1a;
+  gap: 8px;
+}
+.snapshot-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+}
+.snapshot-label {
+  font-size: 11px;
+  color: #ccc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.snapshot-time {
+  font-size: 10px;
+  color: #555;
+}
+.snapshot-restore-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid #333;
+  border-radius: 4px;
+  background: transparent;
+  color: #888;
+  font-size: 10px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color .15s, border-color .15s;
+}
+.snapshot-restore-btn:hover { color: #FF5E1A; border-color: #FF5E1A; }
+.snapshot-empty {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  font-size: 10px;
+  color: #444;
+  border-top: 1px solid #1a1a2e;
+}
+.snapshot-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #666;
+  font-size: 10px;
+  cursor: pointer;
+  transition: color .15s;
+}
+.snapshot-toggle-btn:hover { color: #FF5E1A; }
+.snapshot-toggle-btn.active { color: #FF5E1A; }
+
+/* ── Test badge ───────────────────────────────────────────────── */
+.test-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: opacity .15s;
+}
+.test-badge:hover { opacity: 0.8; }
+.test-badge--idle   { background: #1a1a2e; color: #888; border: 1px solid #333; }
+.test-badge--running { background: transparent; color: #888; border: 1px solid #333; cursor: default; }
+.test-badge--passed  { background: rgba(34,197,94,.12); color: #22c55e; border: 1px solid rgba(34,197,94,.3); }
+.test-badge--failed  { background: rgba(239,68,68,.12); color: #ef4444; border: 1px solid rgba(239,68,68,.3); }
+@keyframes spin { to { transform: rotate(360deg); } }
+.test-badge__spin { animation: spin 1s linear infinite; }
+
+/* ── Voice input ─────────────────────────────────────────────── */
+.mic-btn {
+  display: flex;
+  align-items: center;
+  padding: 5px 8px;
+  border: 1px solid #333;
+  border-radius: 4px;
+  background: transparent;
+  color: #666;
+  cursor: pointer;
+  transition: color .15s, border-color .15s;
+  flex-shrink: 0;
+}
+.mic-btn:hover:not(:disabled) { color: #FF5E1A; border-color: #FF5E1A; }
+.mic-btn:disabled { opacity: 0.4; cursor: default; }
+.mic-btn--recording {
+  color: #ef4444;
+  border-color: #ef4444;
+  animation: mic-pulse 1.2s ease-in-out infinite;
+}
+@keyframes mic-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.55; }
+}

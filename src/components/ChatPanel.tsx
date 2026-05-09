@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, type FormEvent, type KeyboardEvent } from 'react';
-import { Send, Square, Zap } from 'lucide-react';
-import type { Message, LLMProvider } from '../types';
+import { Send, Square, Zap, Mic, MicOff } from 'lucide-react';
+import type { Message, LLMProvider, ProjectPlan } from '../types';
+import { PlanCard } from './PlanCard';
+import { useSpeech } from '../hooks/useSpeech';
 
 // ── Suggestions shown when chat is empty ─────────────────────
 const SUGGESTIONS = [
@@ -82,14 +84,19 @@ function EmptyState({ onSuggest }: { onSuggest: (s: string) => void }) {
 
 // ── Main component ────────────────────────────────────────────
 interface Props {
-  messages: Message[];
-  isGenerating: boolean;
+  messages:             Message[];
+  isGenerating:         boolean;
   streamingExplanation: string;
-  llmConfig: LLMProvider;
-  onLlmConfigChange: (cfg: LLMProvider) => void;
-  needsSetup: boolean;
-  onSend: (text: string) => void;
-  onStop: () => void;
+  llmConfig:            LLMProvider;
+  onLlmConfigChange:    (cfg: LLMProvider) => void;
+  needsSetup:           boolean;
+  onSend:               (text: string) => void;
+  onStop:               () => void;
+  // Phase 2 — plan flow
+  pendingPlan?:         ProjectPlan | null;
+  isPlanLoading?:       boolean;
+  onConfirmPlan?:       () => void;
+  onRejectPlan?:        () => void;
 }
 
 export function ChatPanel({
@@ -101,10 +108,33 @@ export function ChatPanel({
   needsSetup,
   onSend,
   onStop,
+  pendingPlan,
+  isPlanLoading,
+  onConfirmPlan,
+  onRejectPlan,
 }: Props) {
   const [input, setInput]   = useState('');
   const endRef              = useRef<HTMLDivElement>(null);
   const textareaRef         = useRef<HTMLTextAreaElement>(null);
+
+  const speech = useSpeech();
+
+  useEffect(() => {
+    if (speech.listening) setInput(speech.transcript);
+  }, [speech.transcript, speech.listening]);
+
+  const handleMicClick = () => {
+    if (speech.listening) {
+      speech.stop();
+    } else {
+      speech.start((text) => {
+        const trimmed = text.trim();
+        if (!trimmed) return;
+        onSend(trimmed);
+        setInput('');
+      });
+    }
+  };
 
   // Auto-scroll
   useEffect(() => {
@@ -162,6 +192,25 @@ export function ChatPanel({
           <MessageBubble key={m.id} message={m} />
         ))}
 
+        {/* Plan loading indicator */}
+        {isPlanLoading && (
+          <div className="typing">
+            <div className="msg-avatar">F</div>
+            <div className="typing-dots">
+              <div className="typing-dot" /><div className="typing-dot" /><div className="typing-dot" />
+            </div>
+          </div>
+        )}
+
+        {/* Plan card — user must confirm before generation starts */}
+        {pendingPlan && !isPlanLoading && (
+          <PlanCard
+            plan={pendingPlan}
+            onConfirm={onConfirmPlan ?? (() => {})}
+            onReject={onRejectPlan ?? (() => {})}
+          />
+        )}
+
         {/* Streaming response */}
         {isGenerating && streamingExplanation && (
           <MessageBubble
@@ -194,10 +243,21 @@ export function ChatPanel({
               ? 'Describe the app you want to build…'
               : 'Ask for changes…'
           }
-          disabled={isGenerating}
+          disabled={isGenerating || isPlanLoading || !!pendingPlan}
           rows={3}
         />
         <div className="input-row">
+          {speech.supported && (
+            <button
+              type="button"
+              className={`mic-btn${speech.listening ? ' mic-btn--recording' : ''}`}
+              onClick={handleMicClick}
+              disabled={isGenerating || isPlanLoading || !!pendingPlan}
+              title={speech.listening ? 'Stop recording' : 'Voice input (auto-submits after 2s silence)'}
+            >
+              {speech.listening ? <MicOff size={13} /> : <Mic size={13} />}
+            </button>
+          )}
           <span className="input-hint">↵ send · shift+↵ newline</span>
           {isGenerating ? (
             <button type="button" className="stop-btn" onClick={onStop}>
@@ -208,7 +268,7 @@ export function ChatPanel({
             <button
               type="submit"
               className="send-btn"
-              disabled={!input.trim()}
+              disabled={!input.trim() || isPlanLoading || !!pendingPlan}
             >
               <Send size={13} />
               Send
