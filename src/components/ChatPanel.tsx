@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, type FormEvent, type KeyboardEvent } from 'react';
-import { Send, Square, Zap, Mic, MicOff } from 'lucide-react';
+import { Send, Square, Zap, Mic, MicOff, Paperclip } from 'lucide-react';
 import type { Message, LLMProvider, ProjectPlan } from '../types';
 import { PlanCard } from './PlanCard';
 import { useSpeech } from '../hooks/useSpeech';
+import { supportsVision } from '../lib/visionProviders';
 
 // ── Suggestions shown when chat is empty ─────────────────────
 const SUGGESTIONS = [
@@ -90,7 +91,7 @@ interface Props {
   llmConfig:            LLMProvider;
   onLlmConfigChange:    (cfg: LLMProvider) => void;
   needsSetup:           boolean;
-  onSend:               (text: string) => void;
+  onSend:               (text: string, imageData?: string) => void;
   onStop:               () => void;
   // Phase 2 — plan flow
   pendingPlan?:         ProjectPlan | null;
@@ -116,8 +117,42 @@ export function ChatPanel({
   const [input, setInput]   = useState('');
   const endRef              = useRef<HTMLDivElement>(null);
   const textareaRef         = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef        = useRef<HTMLInputElement>(null);
 
   const speech = useSpeech();
+
+  const handleImageError = (msg: string) => {
+    setInput(msg);
+    setTimeout(() => setInput(''), 3000);
+  };
+
+  const handleImageSelect = (file: File) => {
+    if (file.size > 5 * 1024 * 1024) {
+      handleImageError('Image too large — max 5MB');
+      return;
+    }
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+      handleImageError('Only PNG, JPG, and WebP are supported');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      onSend(input.trim(), dataUrl);
+      setInput('');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const imageItem = Array.from(e.clipboardData.items)
+      .find((item) => item.type.startsWith('image/'));
+    if (imageItem) {
+      e.preventDefault();
+      const file = imageItem.getAsFile();
+      if (file) handleImageSelect(file);
+    }
+  };
 
   useEffect(() => {
     if (speech.listening) setInput(speech.transcript);
@@ -231,7 +266,7 @@ export function ChatPanel({
       </div>
 
       {/* Input */}
-      <form className="chat-input-wrap" onSubmit={handleSubmit}>
+      <form className="chat-input-wrap" onSubmit={handleSubmit} onPaste={handlePaste}>
         <textarea
           ref={textareaRef}
           className="chat-textarea"
@@ -257,6 +292,30 @@ export function ChatPanel({
             >
               {speech.listening ? <MicOff size={13} /> : <Mic size={13} />}
             </button>
+          )}
+          {supportsVision(llmConfig.provider) && (
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleImageSelect(file);
+                  e.target.value = '';
+                }}
+              />
+              <button
+                type="button"
+                className="attachment-btn"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isGenerating || isPlanLoading || !!pendingPlan}
+                title="Attach image (or paste from clipboard)"
+              >
+                <Paperclip size={13} />
+              </button>
+            </>
           )}
           <span className="input-hint">↵ send · shift+↵ newline</span>
           {isGenerating ? (

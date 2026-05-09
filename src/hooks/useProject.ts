@@ -249,7 +249,7 @@ export function useProject() {
   }, []);
 
   // ── Send message ─────────────────────────────────────────────
-  const sendMessage = useCallback(async (userContent: string) => {
+  const sendMessage = useCallback(async (userContent: string, imageData?: string) => {
     if (isGenerating) return;
 
     const userMsg: Message = {
@@ -272,6 +272,7 @@ export function useProject() {
         body:    JSON.stringify({
           messages:  history.map((m) => ({ role: m.role, content: m.content })),
           llmConfig,
+          ...(imageData ? { imageData } : {}),
         }),
       });
 
