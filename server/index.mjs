@@ -554,6 +554,59 @@ app.post('/api/projects/:id/test', async (req, res) => {
   res.end();
 });
 
+// ── Playwright E2E ────────────────────────────────────────────
+app.post('/api/projects/:id/playwright-test', async (req, res) => {
+  const { llmConfig, files } = req.body;
+  if (!files?.length) return res.status(400).json({ error: 'files required' });
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+
+  const send = (obj) => res.write(`data: ${JSON.stringify(obj)}\n\n`);
+
+  try {
+    send({ status: 'generating', framework: 'playwright' });
+
+    const prompt   = buildTestGenPrompt(files, 'playwright');
+    const provider = createProvider(llmConfig);
+    const testCode = await provider.generate(
+      [{ role: 'user', content: prompt }],
+      'You are a test engineer. Output only the Playwright test file content.',
+    );
+
+    const id    = safeId(req.params.id);
+    const dir   = projectDir(id);
+    const fpath = path.join(dir, 'forge_playwright.spec.js');
+    await fs.writeFile(fpath, testCode, 'utf-8');
+    send({ status: 'running', file: 'forge_playwright.spec.js' });
+
+    let output = '';
+    await new Promise((resolve) => {
+      const proc = spawn(
+        'npx',
+        ['playwright', 'test', 'forge_playwright.spec.js', '--reporter=line'],
+        { cwd: dir, shell: true },
+      );
+      proc.stdout.on('data', (d) => { output += d; send({ chunk: d.toString() }); });
+      proc.stderr.on('data', (d) => { output += d; send({ chunk: d.toString() }); });
+      proc.on('close', resolve);
+    });
+
+    const counts = parseTestOutput(output, 'playwright');
+    send({ status: 'done', ...counts });
+  } catch (err) {
+    const msg  = String(err.message || err);
+    const hint = msg.includes('not found') || msg.includes('ENOENT')
+      ? 'Playwright not found. Run: npx playwright install chromium'
+      : msg;
+    send({ error: hint });
+  }
+  res.end();
+});
+
 // ── Snapshots ─────────────────────────────────────────────────
 app.get('/api/projects/:id/snapshots', async (req, res) => {
   const dir = projectDir(safeId(req.params.id));
