@@ -94,6 +94,7 @@ export interface LLMProvider {
   apiKey?: string;
   baseUrl?: string;
   model?: string;
+  autoRun?: boolean;
 }
 
 export const DEFAULT_LLM_PROVIDER: LLMProvider = {

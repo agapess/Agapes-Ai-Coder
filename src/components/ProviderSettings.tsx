@@ -142,6 +142,17 @@ export function ProviderSettings({ config, onChange }: Props) {
           </span>
         )}
       </div>
+
+      <div className="settings-row" style={{ marginTop: 8 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 11, color: '#aaa' }}>
+          <input
+            type="checkbox"
+            checked={config.autoRun !== false}
+            onChange={(e) => update({ autoRun: e.target.checked })}
+          />
+          Auto-run code after generation
+        </label>
+      </div>
     </div>
   );
 }

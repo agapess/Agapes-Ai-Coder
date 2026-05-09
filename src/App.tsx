@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Header }       from './components/Header';
 import { Sidebar }      from './components/Sidebar';
 import { ChatPanel }    from './components/ChatPanel';
@@ -6,6 +6,7 @@ import { CodePanel }    from './components/CodePanel';
 import { PreviewPanel } from './components/PreviewPanel';
 import { useProject }   from './hooks/useProject';
 import { useExecution } from './hooks/useExecution';
+import { detectEntryPointFromFiles } from './lib/entryPoint';
 import type { ViewMode } from './types';
 
 export function App() {
@@ -13,6 +14,26 @@ export function App() {
   const project = useProject();
 
   const { state: execState, run: execRun, stop: execStop, writeRef } = useExecution(project.folderPath ?? '');
+
+  const wasGeneratingRef = useRef(false);
+
+  useEffect(() => {
+    const wasGenerating = wasGeneratingRef.current;
+    wasGeneratingRef.current = project.isGenerating;
+
+    // Trigger auto-run when generation just finished
+    if (wasGenerating && !project.isGenerating && project.files.length > 0) {
+      if (project.llmConfig.autoRun !== false) {
+        const entryPath = detectEntryPointFromFiles(project.files.map((f) => f.path));
+        if (entryPath) {
+          const file = project.files.find((f) => f.path === entryPath);
+          if (file) {
+            execRun(file.path, file.content);
+          }
+        }
+      }
+    }
+  }, [project.isGenerating, project.files, project.llmConfig.autoRun]);
 
   const handleSelectFile = (path: string) => {
     project.setActiveFilePath(path);
