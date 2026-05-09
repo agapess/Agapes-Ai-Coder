@@ -1,9 +1,10 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Copy, Check, FileCode } from 'lucide-react';
 import SyntaxHighlighter from 'react-syntax-highlighter';
-import type { GeneratedFile, ExecutionState } from '../types';
+import type { GeneratedFile, ExecutionState, LLMProvider } from '../types';
 import { TerminalPane } from './TerminalPane';
 import { buildCommand, isWebFile } from '../hooks/useExecution';
+import { useAutoFix } from '../hooks/useAutoFix';
 
 // ── Custom FORGE syntax theme ─────────────────────────────────
 const forgeTheme: Record<string, React.CSSProperties> = {
@@ -44,11 +45,48 @@ interface Props {
   onRun:          (filePath: string, content: string) => void;
   onStop:         () => void;
   writeRef:       React.MutableRefObject<((data: string) => void) | null>;
+  llmConfig:      LLMProvider;
+  onUpdateFile:   (path: string, content: string) => void;
 }
 
-export function CodePanel({ files, activeFilePath, onSelectFile, streamingFile, isGenerating, execState, onRun, onStop, writeRef }: Props) {
+export function CodePanel({ files, activeFilePath, onSelectFile, streamingFile, isGenerating, execState, onRun, onStop, writeRef, llmConfig, onUpdateFile }: Props) {
   const [copied, setCopied] = useState(false);
   const [termHeight, setTermHeight] = useState(0);
+
+  const { state: autoFixState, attemptFix } = useAutoFix(
+    llmConfig,
+    onRun,
+    onUpdateFile,
+  );
+
+  const terminalOutputRef = useRef('');
+
+  // Wrap writeRef to also accumulate terminal output for auto-fix
+  const wrappedWriteRef = useRef<((data: string) => void) | null>(null);
+  useEffect(() => {
+    wrappedWriteRef.current = (data: string) => {
+      writeRef.current?.(data);
+      terminalOutputRef.current += data;
+    };
+  }, [writeRef]);
+
+  // Auto-fix: when execution exits with non-zero code, attempt fix
+  useEffect(() => {
+    if (execState.status === 'exited' && execState.exitCode !== 0 && execState.exitCode !== null) {
+      const activeFile = files.find((f) => f.path === activeFilePath) ?? files[0];
+      if (activeFile && terminalOutputRef.current) {
+        attemptFix(activeFile.path, activeFile.content, terminalOutputRef.current);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [execState.status, execState.exitCode]);
+
+  // Reset terminal output accumulator when a new run starts
+  useEffect(() => {
+    if (execState.status === 'running') {
+      terminalOutputRef.current = '';
+    }
+  }, [execState.status]);
 
   // Build the tab list: completed files + the in-progress one (if different)
   const tabs = streamingFile && !files.find((f) => f.path === streamingFile.path)
@@ -208,7 +246,7 @@ export function CodePanel({ files, activeFilePath, onSelectFile, streamingFile, 
             wsUrl="ws://localhost:3001/terminal"
             onStop={onStop}
             onClear={() => {}}
-            writeRef={writeRef}
+            writeRef={wrappedWriteRef}
           />
         </div>
       )}

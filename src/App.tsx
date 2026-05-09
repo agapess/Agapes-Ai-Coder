@@ -69,6 +69,8 @@ export function App() {
               onRun={execRun}
               onStop={execStop}
               writeRef={writeRef}
+              llmConfig={project.llmConfig}
+              onUpdateFile={project.updateFileContent}
             />
           )}
           {(viewMode === 'preview' || viewMode === 'split') && (

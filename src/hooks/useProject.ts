@@ -232,6 +232,13 @@ export function useProject() {
   // ── Active file (exposed so Sidebar + CodePanel can change it)
   const setActiveFilePath = useCallback((path: string) => setActive(path), []);
 
+  // ── Update a single file's content (used by auto-fix) ────────
+  const updateFileContent = useCallback((filePath: string, newContent: string) => {
+    setFiles(prev => prev.map(f =>
+      f.path === filePath ? { ...f, content: newContent } : f
+    ));
+  }, []);
+
   // ── Stop generation ──────────────────────────────────────────
   const stopGeneration = useCallback(() => {
     readerRef.current?.cancel().catch(() => undefined);
@@ -414,5 +421,6 @@ export function useProject() {
     newProject,
     loadProject,
     deleteProject,
+    updateFileContent,
   };
 }
