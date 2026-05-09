@@ -1420,3 +1420,70 @@ a { text-decoration: none; color: inherit; }
 }
 .image-attachment__remove:hover { background: #ef4444; color: #fff; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+
+/* ── Clone panel ─────────────────────────────────────────────── */
+.chat-tabs {
+  display: flex;
+  border-bottom: 1px solid #1a1a2e;
+  flex-shrink: 0;
+}
+.chat-tab {
+  padding: 8px 14px;
+  font-size: 11px;
+  color: #666;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color .15s, border-color .15s;
+}
+.chat-tab.active { color: #FF5E1A; border-bottom-color: #FF5E1A; }
+.chat-tab:hover:not(.active) { color: #aaa; }
+.clone-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 24px 16px;
+  flex: 1;
+  overflow-y: auto;
+}
+.clone-title  { font-size: 13px; font-weight: 600; color: #eee; }
+.clone-sub    { font-size: 11px; color: #666; margin: 0; line-height: 1.6; }
+.clone-form   { display: flex; gap: 8px; }
+.clone-input  {
+  flex: 1;
+  background: #0d0d1a;
+  border: 1px solid #2a2a3e;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: #eee;
+  outline: none;
+}
+.clone-input:focus { border-color: #FF5E1A; }
+.clone-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 14px;
+  background: #FF5E1A;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .15s;
+}
+.clone-btn:hover:not(:disabled) { background: #ff7040; }
+.clone-btn:disabled { opacity: 0.4; cursor: default; }
+.clone-btn__spin { animation: spin 1s linear infinite; }
+.clone-error {
+  font-size: 11px;
+  color: #ff7f7f;
+  padding: 6px 10px;
+  background: rgba(239,68,68,.08);
+  border-radius: 5px;
+  border: 1px solid rgba(239,68,68,.2);
+}
