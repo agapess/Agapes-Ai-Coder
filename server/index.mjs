@@ -5,6 +5,8 @@ import fs         from 'fs/promises';
 import path       from 'path';
 import { spawn }  from 'child_process';
 import { fileURLToPath } from 'url';
+import { WebSocketServer } from 'ws';
+import { ExecutionManager } from './execution.mjs';
 
 const __dirname    = path.dirname(fileURLToPath(import.meta.url));
 const PROJECTS_DIR = path.join(__dirname, '..', 'projects');
@@ -474,7 +476,60 @@ app.post('/api/projects/:id/open-folder', async (req, res) => {
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
-app.listen(PORT, () => {
+// ── WebSocket terminal server ─────────────────────────────────
+const server = app.listen(PORT, () => {
   console.log(`\n🔥 FORGE → http://localhost:${PORT}`);
   console.log(`   Projects: ${PROJECTS_DIR}\n`);
+});
+
+const wss = new WebSocketServer({ noServer: true });
+
+server.on('upgrade', (request, socket, head) => {
+  const { pathname } = new URL(request.url, `http://localhost:${PORT}`);
+  if (pathname === '/terminal') {
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      wss.emit('connection', ws, request);
+    });
+  } else {
+    socket.destroy();
+  }
+});
+
+wss.on('connection', (ws) => {
+  let mgr = null;
+
+  ws.on('message', async (raw) => {
+    let msg;
+    try { msg = JSON.parse(raw); } catch { return; }
+
+    if (msg.type === 'start') {
+      mgr?.destroy();
+      mgr = new ExecutionManager();
+
+      const exitCode = await mgr.run({
+        content:  msg.content,
+        filePath: msg.file,
+        cwd:      msg.cwd,
+        onData:   (data) => {
+          if (ws.readyState === ws.OPEN) {
+            ws.send(JSON.stringify({ type: 'output', data }));
+          }
+        },
+      });
+
+      if (ws.readyState === ws.OPEN) {
+        ws.send(JSON.stringify({ type: 'exit', code: exitCode }));
+      }
+      mgr = null;
+    }
+
+    if (msg.type === 'input')  mgr?.write(msg.data);
+    if (msg.type === 'kill')   { mgr?.kill(); mgr = null; }
+    if (msg.type === 'resize') mgr?.resize(msg.cols, msg.rows);
+  });
+
+  ws.on('close', () => {
+    mgr?.destroy();
+    mgr = null;
+  });
 });
