@@ -12,6 +12,7 @@ import { webSearch }      from './mcp/search.mjs';
 import { parsePlanJson }  from './providers/plan-utils.mjs';
 import { createSnapshot, listSnapshots, restoreSnapshot } from './mcp/snapshot.mjs';
 import { detectTestFramework, parseTestOutput, buildTestGenPrompt } from './mcp/tests.mjs';
+import { stripHtml, checkRobotsDisallowed } from './mcp/clone.mjs';
 
 const __dirname    = path.dirname(fileURLToPath(import.meta.url));
 const PROJECTS_DIR = path.join(__dirname, '..', 'projects');
@@ -235,6 +236,66 @@ app.get('/api/search', async (req, res) => {
     res.json({ results });
   } catch (err) {
     res.status(500).json({ error: String(err.message || err) });
+  }
+});
+
+// ── URL Clone ─────────────────────────────────────────────────
+app.post('/api/clone', async (req, res) => {
+  const { url } = req.body;
+  if (!url) return res.status(400).json({ error: 'url required' });
+
+  let parsed;
+  try { parsed = new URL(url); } catch {
+    return res.status(400).json({ error: 'Invalid URL' });
+  }
+
+  // Check robots.txt
+  try {
+    const robotsRes = await fetch(`${parsed.origin}/robots.txt`, {
+      headers: { 'User-Agent': 'FORGE/1.0 (educational web recreation tool)' },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (robotsRes.ok) {
+      const txt = await robotsRes.text();
+      if (checkRobotsDisallowed(txt)) {
+        return res.status(403).json({ error: "This site doesn't allow automated access." });
+      }
+    }
+  } catch { /* robots.txt unavailable — proceed */ }
+
+  // Fetch the page
+  const controller = new AbortController();
+  const timeout    = setTimeout(() => controller.abort(), 10000);
+  try {
+    const pageRes = await fetch(url, {
+      headers: { 'User-Agent': 'FORGE/1.0 (educational web recreation tool)' },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!pageRes.ok) {
+      return res.status(502).json({ error: `Page not found (HTTP ${pageRes.status})` });
+    }
+
+    const html       = await pageRes.text();
+    const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+    const title      = titleMatch?.[1]?.trim() ?? '';
+    const stripped   = stripHtml(html);
+    const content    = (title ? `Page title: ${title}\n\n` : '') + stripped;
+    const truncated  = content.slice(0, 12000);
+
+    if (!truncated.trim()) {
+      return res.status(422).json({ error: 'No readable content found — try a different URL.' });
+    }
+    res.json({ content: truncated, title });
+  } catch (err) {
+    clearTimeout(timeout);
+    if (err.name === 'AbortError') {
+      return res.status(504).json({
+        error: `Could not reach ${url} — the site took too long to respond.`,
+      });
+    }
+    res.status(502).json({ error: String(err.message || err) });
   }
 });
 
