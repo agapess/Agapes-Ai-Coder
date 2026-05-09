@@ -32,7 +32,7 @@ function MessageBubble({
       {!isUser && (
         <div className="msg-meta">
           <div className="msg-avatar">F</div>
-          <span className="msg-author">Forge</span>
+          <span className="msg-author">Agapes</span>
         </div>
       )}
       {isUser && (

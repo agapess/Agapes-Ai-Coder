@@ -645,7 +645,7 @@ app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
 // ── WebSocket terminal server ─────────────────────────────────
 const server = app.listen(PORT, () => {
-  console.log(`\n🔥 FORGE → http://localhost:${PORT}`);
+  console.log(`\n✨ Agapes Ai Coder → http://localhost:${PORT}`);
   console.log(`   Projects: ${PROJECTS_DIR}\n`);
 });
 

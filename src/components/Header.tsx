@@ -51,8 +51,8 @@ export function Header({
   return (
     <header className="header">
       <div className="logo">
-        <div className="logo-mark">F</div>
-        <span className="logo-text">FORGE</span>
+        <div className="logo-mark">A</div>
+        <span className="logo-text">Agapes Ai Coder</span>
       </div>
 
       <div className="hdr-sep" />
