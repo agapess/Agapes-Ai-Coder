@@ -2,6 +2,28 @@ import React, { useState, useRef, useEffect } from 'react';
 import { RefreshCw, ExternalLink, MonitorSmartphone, Code2 } from 'lucide-react';
 import type { GeneratedFile } from '../types';
 
+const CONSOLE_INTERCEPTOR = `<script>
+(function() {
+  const _send = (level, args) => {
+    const formatted = args.map(a => {
+      try { return typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a); }
+      catch { return String(a); }
+    }).join(' ');
+    window.parent.postMessage({ type: 'console', level, text: formatted }, '*');
+  };
+  ['log','warn','error','info','debug'].forEach(l => {
+    const orig = console[l].bind(console);
+    console[l] = (...args) => { orig(...args); _send(l, args); };
+  });
+  window.onerror = (msg, src, line, col, err) => {
+    _send('error', [\`\${msg} (line \${line})\${err?.stack ? '\\n' + err.stack : ''}\`]);
+  };
+  window.addEventListener('unhandledrejection', e => {
+    _send('error', ['Unhandled Promise rejection: ' + (e.reason?.message || e.reason)]);
+  });
+})();
+<\/script>`;
+
 interface Props {
   files:        GeneratedFile[];
   isGenerating: boolean;
@@ -10,7 +32,6 @@ interface Props {
 }
 
 export function PreviewPanel({ files, isGenerating, onShowCode, writeRef }: Props) {
-  void writeRef; // reserved for Task 13 console interceptor
   const [refreshKey, setRefreshKey] = useState(0);
   const [loaded, setLoaded]         = useState(false);
   const iframeRef                   = useRef<HTMLIFrameElement>(null);
@@ -23,6 +44,30 @@ export function PreviewPanel({ files, isGenerating, onShowCode, writeRef }: Prop
   const hasFiles   = files.length > 0;
 
   useEffect(() => { setLoaded(false); }, [htmlFile?.content, refreshKey]);
+
+  useEffect(() => {
+    if (!writeRef) return;
+    const handler = (e: MessageEvent) => {
+      if (e.data?.type !== 'console') return;
+      const { level, text } = e.data as { level: string; text: string };
+      const colors: Record<string, string> = {
+        error: '\x1b[31m',
+        warn:  '\x1b[33m',
+        info:  '\x1b[36m',
+        log:   '\x1b[37m',
+        debug: '\x1b[90m',
+      };
+      const color = colors[level] ?? '\x1b[37m';
+      writeRef.current?.(`${color}[${level}] ${text}\x1b[0m\r\n`);
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, [writeRef]);
+
+  const injectedHtml = htmlFile
+    ? (htmlFile.content.replace(/(<head[^>]*>)/i, `$1\n${CONSOLE_INTERCEPTOR}`) ||
+       (CONSOLE_INTERCEPTOR + htmlFile.content))
+    : '';
 
   const refresh    = () => setRefreshKey((k) => k + 1);
   const openInTab  = () => {
@@ -61,7 +106,7 @@ export function PreviewPanel({ files, isGenerating, onShowCode, writeRef }: Prop
             <iframe
               key={refreshKey}
               ref={iframeRef}
-              srcDoc={htmlFile!.content}
+              srcDoc={injectedHtml}
               sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-modals"
               title="App Preview"
               className="preview-iframe"
