@@ -1,0 +1,104 @@
+<h2>Execution Data Flow</h2>
+<p class="subtitle">What happens from click → output, for both web and server-side code</p>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:4px;">
+
+  <!-- Server-side flow -->
+  <div>
+    <div style="color:#FF5E1A;font-size:11px;font-weight:bold;margin-bottom:10px;text-align:center;">SERVER-SIDE (Python, Node, Bash…)</div>
+    <div style="display:flex;flex-direction:column;gap:0;">
+
+      <div style="background:#1e1e2e;border-radius:6px 6px 0 0;padding:10px 12px;border-left:3px solid #FF5E1A;">
+        <div style="color:#FF5E1A;font-size:9px;font-weight:bold;">1. USER CLICKS RUN</div>
+        <div style="color:#aaa;font-size:9px;margin-top:3px;">useExecution detects language from active file extension (.py → python). Opens WebSocket to ws://localhost:3001/terminal</div>
+      </div>
+
+      <div style="width:2px;height:12px;background:#333;margin-left:24px;"></div>
+
+      <div style="background:#1e1e2e;border-radius:6px;padding:10px 12px;border-left:3px solid #FF5E1A;">
+        <div style="color:#FF5E1A;font-size:9px;font-weight:bold;">2. WS HANDSHAKE → SPAWN</div>
+        <div style="color:#aaa;font-size:9px;margin-top:3px;">Backend receives connection. Writes file content to temp path in project dir. Spawns node-pty: <span style="color:#7fff7f;">python script.py</span> in project working directory.</div>
+      </div>
+
+      <div style="width:2px;height:12px;background:#333;margin-left:24px;"></div>
+
+      <div style="background:#1e1e2e;border-radius:6px;padding:10px 12px;border-left:3px solid #00C4AA;">
+        <div style="color:#00C4AA;font-size:9px;font-weight:bold;">3. LIVE I/O PIPE</div>
+        <div style="color:#aaa;font-size:9px;margin-top:3px;">PTY stdout/stderr → WebSocket → xterm.js (rendered in real-time). xterm.js keystrokes → WebSocket → PTY stdin. Full bidirectional, ANSI colors preserved.</div>
+      </div>
+
+      <div style="width:2px;height:12px;background:#333;margin-left:24px;"></div>
+
+      <div style="background:#1e1e2e;border-radius:6px;padding:10px 12px;border-left:3px solid #7fff7f;">
+        <div style="color:#7fff7f;font-size:9px;font-weight:bold;">4. PROCESS EXIT</div>
+        <div style="color:#aaa;font-size:9px;margin-top:3px;">PTY exit event fires. Backend sends <span style="color:#7fff7f;">{"type":"exit","code":0}</span> over WS. Frontend shows exit badge, disables Stop. WS closes cleanly.</div>
+      </div>
+
+      <div style="width:2px;height:12px;background:#333;margin-left:24px;"></div>
+
+      <div style="background:#1a0a0a;border-radius:0 0 6px 6px;padding:10px 12px;border-left:3px solid #ff4444;">
+        <div style="color:#ff4444;font-size:9px;font-weight:bold;">STOP / TIMEOUT</div>
+        <div style="color:#aaa;font-size:9px;margin-top:3px;">Stop button → WS sends <span style="color:#ff4444;">{"type":"kill"}</span> → backend kills PTY process. Also auto-kills after 60s timeout.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Web flow -->
+  <div>
+    <div style="color:#00C4AA;font-size:11px;font-weight:bold;margin-bottom:10px;text-align:center;">WEB FILES (HTML/CSS/JS)</div>
+    <div style="display:flex;flex-direction:column;gap:0;">
+
+      <div style="background:#1e1e2e;border-radius:6px 6px 0 0;padding:10px 12px;border-left:3px solid #00C4AA;">
+        <div style="color:#00C4AA;font-size:9px;font-weight:bold;">1. USER CLICKS RUN</div>
+        <div style="color:#aaa;font-size:9px;margin-top:3px;">HTML file detected. No WebSocket needed. Existing Preview iframe is refreshed. Console interceptor script is injected before page renders.</div>
+      </div>
+
+      <div style="width:2px;height:12px;background:#333;margin-left:24px;"></div>
+
+      <div style="background:#1e1e2e;border-radius:6px;padding:10px 12px;border-left:3px solid #00C4AA;">
+        <div style="color:#00C4AA;font-size:9px;font-weight:bold;">2. INTERCEPTOR INJECTED</div>
+        <div style="color:#aaa;font-size:9px;margin-top:3px;">A small script overrides <span style="color:#7fff7f;">console.log/warn/error</span> and window.onerror inside the iframe. Each call is PostMessaged to the parent frame.</div>
+      </div>
+
+      <div style="width:2px;height:12px;background:#333;margin-left:24px;"></div>
+
+      <div style="background:#1e1e2e;border-radius:6px;padding:10px 12px;border-left:3px solid #7fff7f;">
+        <div style="color:#7fff7f;font-size:9px;font-weight:bold;">3. POSTMESSAGE → TERMINAL</div>
+        <div style="color:#aaa;font-size:9px;margin-top:3px;">Parent window listens for messages. Each console event is formatted and written to the TerminalPane — same UI as server-side output. Errors show in red, warnings in yellow.</div>
+      </div>
+
+      <div style="width:2px;height:12px;background:#333;margin-left:24px;"></div>
+
+      <div style="background:#1e1e2e;border-radius:0 0 6px 6px;padding:10px 12px;border-left:3px solid #555;">
+        <div style="color:#aaa;font-size:9px;font-weight:bold;">RUNTIME ERRORS</div>
+        <div style="color:#aaa;font-size:9px;margin-top:3px;"><span style="color:#ff4444;">window.onerror</span> and <span style="color:#ff4444;">unhandledrejection</span> are also captured. Stack traces are formatted and sent to TerminalPane. The preview still shows even if JS errors occur.</div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- WebSocket message protocol -->
+<div style="margin-top:16px;">
+  <div style="color:#888;font-size:9px;font-weight:bold;margin-bottom:6px;text-align:center;">WEBSOCKET MESSAGE PROTOCOL</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-family:monospace;font-size:9px;">
+    <div style="background:#0a0a12;padding:8px;border-radius:4px;border-left:2px solid #00C4AA;">
+      <div style="color:#555;margin-bottom:4px;">Client → Server</div>
+      <div style="color:#7fff7f;">{"type":"start","file":"script.py",</div>
+      <div style="color:#7fff7f;">&nbsp;"content":"...","lang":"python"}</div>
+      <div style="color:#7fff7f;margin-top:4px;">{"type":"input","data":"hello\n"}</div>
+      <div style="color:#7fff7f;margin-top:4px;">{"type":"kill"}</div>
+      <div style="color:#7fff7f;margin-top:4px;">{"type":"resize","cols":80,"rows":24}</div>
+    </div>
+    <div style="background:#0a0a12;padding:8px;border-radius:4px;border-left:2px solid #FF5E1A;">
+      <div style="color:#555;margin-bottom:4px;">Server → Client</div>
+      <div style="color:#7fff7f;">{"type":"output","data":"Got 42..."}</div>
+      <div style="color:#7fff7f;margin-top:4px;">{"type":"exit","code":0}</div>
+      <div style="color:#7fff7f;margin-top:4px;">{"type":"error","message":"python not found"}</div>
+    </div>
+  </div>
+</div>
+
+<p style="margin-top:14px;color:#888;font-size:10px;text-align:center;">Does the data flow make sense? Reply in terminal.</p>

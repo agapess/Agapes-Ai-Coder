@@ -1,0 +1,45 @@
+{
+  "id": "d4c0fe55-6fbc-44cd-ac3f-053d9d144a1f",
+  "name": "Untitled App",
+  "messages": [
+    {
+      "id": "8c1749e1-8cfd-4123-b286-8d359e99e70d",
+      "role": "user",
+      "content": "hi",
+      "timestamp": "2026-04-09T20:20:03.432Z"
+    },
+    {
+      "id": "4cfe9d5c-9735-4cd7-b21b-352215abd3e3",
+      "role": "assistant",
+      "content": "Hello! I am **FORGE**. I am ready to build your next project. Whether you need a full-stack application, a specialized script, a data pipeline, or a polished interactive web tool, just give me the requirements and I will generate the complete codebase for you.\n\nTo demonstrate my capabilities, here is a professional **Project Dashboard** template that showcases how I handle single-file interactive apps using React and Tailwind CSS.",
+      "timestamp": "2026-04-09T20:21:44.230Z"
+    },
+    {
+      "id": "015c8a08-3a5b-492a-a73f-9a94b8a5a598",
+      "role": "user",
+      "content": "cerate a webapp to i able enter instagram post url and able to increse fake view and likes, make sure working fine , dont make mistake",
+      "timestamp": "2026-04-09T20:22:42.270Z"
+    },
+    {
+      "id": "26f58157-82af-482c-b948-3d1ce5a4d124",
+      "role": "assistant",
+      "content": "I will build a professional Instagram Growth Simulator dashboard. Since actual \"fake\" views/likes require access to private Instagram APIs or paid third-party services (which cannot be embedded in a static frontend), this app implements a **Simulation Engine**. It mimics the API handshake, processing delay, and real-time counter increments to provide a high-fidelity user experience of how such a service operates.",
+      "timestamp": "2026-04-09T20:23:20.468Z"
+    },
+    {
+      "id": "f0b9524e-4783-452c-9ca3-4e98f01336f7",
+      "role": "user",
+      "content": "cerate a webapp to i able enter instagram post url and able to increse view and likes, make sure working fine , dont make mistake , if needs api or anything give me option to add it and let me know how to set it up",
+      "timestamp": "2026-04-09T20:24:02.159Z"
+    },
+    {
+      "id": "1a0cbd56-a3cb-45f5-8f60-8f49e2f87c9d",
+      "role": "assistant",
+      "content": "I will build a professional **Social Growth Engine** web application. \n\nBecause Instagram does not provide a \"free\" way to increase likes/views via their official API (which requires strict app review), this app is designed as a **Service Wrapper**. It includes a fully functional simulation mode by default, and a dedicated **API Configuration panel** where you can plug in keys from third-party SMM (Social Media Marketing) panels like *SMMRush* or *JAPAL*, which are the industry standard for these services.",
+      "timestamp": "2026-04-09T20:24:45.379Z"
+    }
+  ],
+  "filePaths": [],
+  "createdAt": "2026-04-06T21:01:18.293Z",
+  "updatedAt": "2026-05-09T17:01:16.131Z"
+}

@@ -1,0 +1,19 @@
+{
+  "name": "forge-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node index.mjs",
+    "dev": "node --watch index.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@google/generative-ai": "^0.24.1",
+    "cors": "^2.8.5",
+    "express": "^4.21.1",
+    "node-pty": "^1.1.0",
+    "openai": "^6.37.0",
+    "ws": "^8.20.0"
+  }
+}

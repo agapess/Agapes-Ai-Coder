@@ -1,0 +1,37 @@
+{
+  "name": "forge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -n \"server,client\" -c \"yellow,cyan\" \"cd server && node index.mjs\" \"vite\"",
+    "dev:client": "vite",
+    "dev:server": "cd server && node --watch index.mjs",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "setup": "npm install && cd server && npm install",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@vitest/ui": "^4.1.5",
+    "lucide-react": "^0.454.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-syntax-highlighter": "^15.5.0",
+    "vitest": "^4.1.5",
+    "xterm": "^5.3.0",
+    "xterm-addon-fit": "^0.8.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/react-syntax-highlighter": "^15.5.13",
+    "@vitejs/plugin-react": "^4.3.3",
+    "@vitest/coverage-v8": "^4.1.5",
+    "concurrently": "^9.1.0",
+    "jsdom": "^29.1.1",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
+  }
+}

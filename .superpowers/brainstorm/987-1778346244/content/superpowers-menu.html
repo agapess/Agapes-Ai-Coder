@@ -1,0 +1,173 @@
+<h2>FORGE Superpower Ideas</h2>
+<p class="subtitle">Pick everything you want — we'll group them into phases. Multi-select enabled.</p>
+
+<div style="margin-bottom:12px;color:#FF5E1A;font-size:10px;font-weight:bold;">AI CORE</div>
+<div class="options" data-multiselect>
+
+  <div class="option" data-choice="ai-loop" onclick="toggleSelect(this)">
+    <div class="letter">1</div>
+    <div class="content">
+      <h3>AI Auto-Fix Loop</h3>
+      <p>Code runs → error detected → Claude fixes it → re-runs. Zero user action. Keep looping until it works or Claude gives up with an explanation in plain English.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="ai-planner" onclick="toggleSelect(this)">
+    <div class="letter">2</div>
+    <div class="content">
+      <h3>AI Project Planner</h3>
+      <p>Before writing code, AI shows a simple plan: "I'll build X with Y. It will do A, B, C. Sound good?" Non-technical users confirm before generation starts. Prevents wasted runs.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="ai-explainer" onclick="toggleSelect(this)">
+    <div class="letter">3</div>
+    <div class="content">
+      <h3>Plain-English Explainer</h3>
+      <p>After every generation or error, AI explains what it built (or broke) in simple terms. No jargon. "Your app couldn't start because a library is missing. I'm installing it now."</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="ai-tester" onclick="toggleSelect(this)">
+    <div class="letter">4</div>
+    <div class="content">
+      <h3>AI Auto-Tester</h3>
+      <p>After building, AI writes and runs tests automatically. Catches bugs before the user even sees the app. Shows a simple "✓ 12 tests passed" badge.</p>
+    </div>
+  </div>
+
+</div>
+
+<div style="margin:16px 0 10px;color:#FF5E1A;font-size:10px;font-weight:bold;">INPUT SUPERPOWERS</div>
+<div class="options" data-multiselect>
+
+  <div class="option" data-choice="voice" onclick="toggleSelect(this)">
+    <div class="letter">5</div>
+    <div class="content">
+      <h3>Voice-to-App</h3>
+      <p>Speak your idea into the microphone. AI transcribes and builds. Perfect for non-technical users who find typing intimidating. Uses Web Speech API (no extra service needed).</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="screenshot" onclick="toggleSelect(this)">
+    <div class="letter">6</div>
+    <div class="content">
+      <h3>Screenshot / Image-to-App</h3>
+      <p>Upload a screenshot or photo of an app you like. Claude's vision analyzes it and clones the design. "Make me something like this" — and it does.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="url-clone" onclick="toggleSelect(this)">
+    <div class="letter">7</div>
+    <div class="content">
+      <h3>URL Clone</h3>
+      <p>Paste a website URL. AI scrapes its design and functionality, then rebuilds it from scratch as editable code in FORGE. Great for "I want something like Airbnb but for X."</p>
+    </div>
+  </div>
+
+</div>
+
+<div style="margin:16px 0 10px;color:#FF5E1A;font-size:10px;font-weight:bold;">MCP TOOLS FOR AI</div>
+<div class="options" data-multiselect>
+
+  <div class="option" data-choice="mcp-search" onclick="toggleSelect(this)">
+    <div class="letter">8</div>
+    <div class="content">
+      <h3>Web Search MCP</h3>
+      <p>AI can search the web during code generation to look up current APIs, documentation, and packages. No more hallucinated library names. Claude finds the real, working version.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="mcp-browser" onclick="toggleSelect(this)">
+    <div class="letter">9</div>
+    <div class="content">
+      <h3>Browser Testing MCP (Playwright)</h3>
+      <p>AI controls a real browser to test the generated web app. Clicks buttons, fills forms, checks output. "I verified your todo app — adding, completing, and deleting items all work."</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="mcp-github" onclick="toggleSelect(this)">
+    <div class="letter">10</div>
+    <div class="content">
+      <h3>GitHub MCP</h3>
+      <p>Push projects to GitHub with one click. AI writes the README, commits everything cleanly, and creates the repo. Non-technical users get a real GitHub presence automatically.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="mcp-packages" onclick="toggleSelect(this)">
+    <div class="letter">11</div>
+    <div class="content">
+      <h3>Package Manager MCP</h3>
+      <p>AI can install npm, pip, cargo packages directly during the build loop. No more "install X first." AI handles dependency installation as part of the auto-fix loop.</p>
+    </div>
+  </div>
+
+</div>
+
+<div style="margin:16px 0 10px;color:#FF5E1A;font-size:10px;font-weight:bold;">SHARING & DEPLOY</div>
+<div class="options" data-multiselect>
+
+  <div class="option" data-choice="deploy" onclick="toggleSelect(this)">
+    <div class="letter">12</div>
+    <div class="content">
+      <h3>One-Click Deploy</h3>
+      <p>Publish any app to the web instantly — Vercel, Netlify, or Railway. Non-technical users get a real public URL to share with anyone. No accounts or config needed (uses FORGE's credentials).</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="gallery" onclick="toggleSelect(this)">
+    <div class="letter">13</div>
+    <div class="content">
+      <h3>App Gallery / Templates</h3>
+      <p>Browse a gallery of pre-built app templates. One click to fork and customize. Also lets users publish their apps so others can clone and remix them.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="export" onclick="toggleSelect(this)">
+    <div class="letter">14</div>
+    <div class="content">
+      <h3>Export as Desktop App</h3>
+      <p>Wrap any app as an Electron desktop app or PWA with one click. Users get an installable .exe or Mac app from their FORGE project. No build knowledge needed.</p>
+    </div>
+  </div>
+
+</div>
+
+<div style="margin:16px 0 10px;color:#FF5E1A;font-size:10px;font-weight:bold;">POWER FEATURES</div>
+<div class="options" data-multiselect>
+
+  <div class="option" data-choice="multi-llm" onclick="toggleSelect(this)">
+    <div class="letter">15</div>
+    <div class="content">
+      <h3>Full Multi-LLM Support</h3>
+      <p>Switch between Claude, OpenAI (GPT-4o), Google Gemini, Ollama, LM Studio, and any OpenAI-compatible API from the settings panel. Per-project model selection.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="multi-agent" onclick="toggleSelect(this)">
+    <div class="letter">16</div>
+    <div class="content">
+      <h3>Multi-Agent Build</h3>
+      <p>For complex projects, spawn multiple AI agents in parallel: one builds the backend, one the frontend, one writes tests. They merge into one project. 3x faster for large apps.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="time-travel" onclick="toggleSelect(this)">
+    <div class="letter">17</div>
+    <div class="content">
+      <h3>Version Time Travel</h3>
+      <p>Every successful run is snapshotted automatically. Slider in the UI lets you jump back to any working version. "Go back to how it was 3 steps ago" — one click.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="collab" onclick="toggleSelect(this)">
+    <div class="letter">18</div>
+    <div class="content">
+      <h3>Live Collaboration</h3>
+      <p>Share a FORGE session with someone else. Both can prompt the AI simultaneously. Great for teaching — show a student how to build something in real time.</p>
+    </div>
+  </div>
+
+</div>
+
+<p style="margin-top:16px;color:#888;font-size:10px;text-align:center;">Select everything you want — then reply in terminal. We'll group them into build phases.</p>

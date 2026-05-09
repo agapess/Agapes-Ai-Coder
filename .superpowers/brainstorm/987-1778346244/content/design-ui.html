@@ -1,0 +1,130 @@
+<h2>UI Design — Code + Terminal Split</h2>
+<p class="subtitle">What the CodePanel looks like with the sandbox integrated</p>
+
+<div class="mockup">
+  <div class="mockup-header">FORGE — Code View (with Sandbox active)</div>
+  <div class="mockup-body" style="padding:0;overflow:hidden;border-radius:0 0 6px 6px;">
+
+    <!-- Full app shell -->
+    <div style="display:flex;height:480px;background:#040406;font-family:'JetBrains Mono',monospace;font-size:10px;">
+
+      <!-- Sidebar (collapsed representation) -->
+      <div style="width:44px;background:#0a0a12;border-right:1px solid #1a1a2e;display:flex;flex-direction:column;align-items:center;padding:8px 0;gap:8px;">
+        <div style="color:#FF5E1A;font-size:14px;font-weight:bold;">F</div>
+        <div style="width:24px;height:1px;background:#1a1a2e;margin:4px 0;"></div>
+        <div style="color:#555;font-size:14px;">≡</div>
+        <div style="color:#555;font-size:14px;">📁</div>
+      </div>
+
+      <!-- Main content -->
+      <div style="flex:1;display:flex;flex-direction:column;">
+
+        <!-- Header bar -->
+        <div style="background:#0d0d18;border-bottom:1px solid #1a1a2e;padding:6px 12px;display:flex;align-items:center;gap:8px;">
+          <div style="color:#FF5E1A;font-size:11px;font-weight:bold;">FORGE</div>
+          <div style="color:#555;font-size:10px;">|</div>
+          <div style="color:#aaa;font-size:10px;">my-python-app</div>
+          <div style="margin-left:auto;display:flex;gap:6px;">
+            <div style="color:#555;font-size:9px;background:#1a1a2e;padding:2px 8px;border-radius:3px;">CODE</div>
+            <div style="color:#555;font-size:9px;background:#1a1a2e;padding:2px 8px;border-radius:3px;">PREVIEW</div>
+            <div style="color:#555;font-size:9px;background:#1a1a2e;padding:2px 8px;border-radius:3px;">SPLIT</div>
+          </div>
+        </div>
+
+        <!-- Code Panel area -->
+        <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+
+          <!-- File tabs -->
+          <div style="background:#0d0d18;border-bottom:1px solid #1a1a2e;display:flex;align-items:center;padding:0 8px;gap:2px;">
+            <div style="background:#1a1a2e;color:#FF5E1A;padding:4px 12px;border-radius:4px 4px 0 0;font-size:9px;border-top:1px solid #FF5E1A;">script.py</div>
+            <div style="color:#555;padding:4px 12px;font-size:9px;">requirements.txt</div>
+            <div style="color:#555;padding:4px 12px;font-size:9px;">README.md</div>
+            <!-- Run button in tab bar -->
+            <div style="margin-left:auto;display:flex;align-items:center;gap:6px;">
+              <div style="color:#555;font-size:9px;">python</div>
+              <div style="background:#FF5E1A;color:#fff;padding:3px 10px;border-radius:3px;font-size:9px;cursor:pointer;display:flex;align-items:center;gap:4px;">
+                <span>▶</span><span>Run</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Code editor (top half) -->
+          <div style="flex:1;background:#0a0a12;padding:10px 12px;overflow:hidden;border-bottom:2px solid #FF5E1A33;min-height:0;">
+            <div style="display:flex;gap:12px;">
+              <div style="color:#333;text-align:right;line-height:1.6;user-select:none;">
+                1<br/>2<br/>3<br/>4<br/>5<br/>6<br/>7<br/>8<br/>9<br/>10<br/>11<br/>12
+              </div>
+              <div style="color:#aaa;line-height:1.6;">
+                <span style="color:#555;">import</span> <span style="color:#00C4AA;">requests</span><br/>
+                <span style="color:#555;">import</span> <span style="color:#00C4AA;">json</span><br/>
+                <br/>
+                <span style="color:#555;">def</span> <span style="color:#FF5E1A;">fetch_data</span>(url):<br/>
+                &nbsp;&nbsp;&nbsp;&nbsp;response = <span style="color:#00C4AA;">requests</span>.get(url)<br/>
+                &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#555;">return</span> response.json()<br/>
+                <br/>
+                data = fetch_data(<span style="color:#7fff7f;">"https://api.example.com"</span>)<br/>
+                <span style="color:#555;">print</span>(<span style="color:#7fff7f;">f"Got </span>{<span style="color:#FF5E1A;">len</span>(data)}<span style="color:#7fff7f;"> records"</span>)<br/>
+                <br/>
+                <span style="color:#555;">for</span> item <span style="color:#555;">in</span> data[:<span style="color:#aaa;">5</span>]:<br/>
+                &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#555;">print</span>(json.dumps(item, indent=<span style="color:#aaa;">2</span>))
+              </div>
+            </div>
+          </div>
+
+          <!-- Resize handle -->
+          <div style="height:4px;background:#1a1a2e;cursor:ns-resize;position:relative;display:flex;align-items:center;justify-content:center;">
+            <div style="width:32px;height:2px;background:#333;border-radius:1px;"></div>
+          </div>
+
+          <!-- Terminal pane (bottom half) -->
+          <div style="height:160px;background:#060810;display:flex;flex-direction:column;">
+
+            <!-- Terminal header -->
+            <div style="background:#0d0d18;border-bottom:1px solid #1a1a2e;padding:4px 10px;display:flex;align-items:center;gap:8px;">
+              <div style="color:#00C4AA;font-size:9px;font-weight:bold;">TERMINAL</div>
+              <div style="color:#555;font-size:9px;">python script.py</div>
+              <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
+                <div style="color:#7fff7f;font-size:8px;background:#0a1a0a;padding:1px 6px;border-radius:10px;border:1px solid #1a3a1a;">● exit 0</div>
+                <div style="color:#555;font-size:9px;cursor:pointer;padding:2px 6px;background:#1a1a2e;border-radius:3px;">⏹ Stop</div>
+                <div style="color:#555;font-size:9px;cursor:pointer;padding:2px 6px;background:#1a1a2e;border-radius:3px;">🗑 Clear</div>
+              </div>
+            </div>
+
+            <!-- Terminal output (xterm.js would render here) -->
+            <div style="flex:1;padding:8px 12px;overflow:auto;font-family:monospace;">
+              <div style="color:#555;font-size:9px;margin-bottom:4px;">$ python script.py</div>
+              <div style="color:#7fff7f;font-size:9px;line-height:1.7;">
+                Got 42 records<br/>
+                <span style="color:#aaa;">{</span><br/>
+                &nbsp;&nbsp;<span style="color:#00C4AA;">"id"</span>: <span style="color:#aaa;">1</span>,<br/>
+                &nbsp;&nbsp;<span style="color:#00C4AA;">"name"</span>: <span style="color:#7fff7f;">"Alice"</span>,<br/>
+                &nbsp;&nbsp;<span style="color:#00C4AA;">"score"</span>: <span style="color:#aaa;">98.5</span><br/>
+                <span style="color:#aaa;">}</span><br/>
+                <span style="color:#FF5E1A;">Process exited with code 0</span>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top:14px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;font-size:9px;">
+  <div style="background:#1a1a2e;padding:10px;border-radius:4px;">
+    <div style="color:#FF5E1A;margin-bottom:4px;font-weight:bold;">▶ Run button</div>
+    <div style="color:#aaa;">Lives in the file tab bar, right side. Shows detected language (e.g. "python") next to it. Disabled for unsupported types.</div>
+  </div>
+  <div style="background:#1a1a2e;padding:10px;border-radius:4px;">
+    <div style="color:#00C4AA;margin-bottom:4px;font-weight:bold;">↕ Resize handle</div>
+    <div style="color:#aaa;">Drag to adjust code vs terminal split ratio. Terminal can be collapsed to 0 height when not needed.</div>
+  </div>
+  <div style="background:#1a1a2e;padding:10px;border-radius:4px;">
+    <div style="color:#7fff7f;margin-bottom:4px;font-weight:bold;">● Exit status</div>
+    <div style="color:#aaa;">Green "exit 0" = success. Red "exit 1" = error. Shown in terminal header after process ends.</div>
+  </div>
+</div>
+
+<p style="margin-top:14px;color:#888;font-size:10px;text-align:center;">Does the UI layout look right? Reply in terminal.</p>

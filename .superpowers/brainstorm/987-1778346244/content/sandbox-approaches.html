@@ -1,0 +1,84 @@
+<h2>How should code execution work under the hood?</h2>
+<p class="subtitle">Three approaches — different power levels, different complexity</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0d0d14;border-radius:6px;padding:12px;font-size:10px;">
+      <div style="color:#888;margin-bottom:6px;">Execution flow</div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <div style="background:#1e1e2e;padding:4px 8px;border-radius:3px;color:#FF5E1A;">▶ Run</div>
+        <div style="color:#555;">→</div>
+        <div style="background:#1e1e2e;padding:4px 8px;border-radius:3px;color:#aaa;">exec(cmd)</div>
+        <div style="color:#555;">→</div>
+        <div style="background:#1e1e2e;padding:4px 8px;border-radius:3px;color:#aaa;">wait...</div>
+        <div style="color:#555;">→</div>
+        <div style="background:#0a1a0a;padding:4px 8px;border-radius:3px;color:#7fff7f;">output</div>
+      </div>
+      <div style="margin-top:10px;background:#0a1a0a;padding:6px;border-radius:3px;">
+        <div style="color:#7fff7f;font-size:9px;font-family:monospace;">Result appears all at once when done.<br/>No streaming. Timeout after 30s.</div>
+      </div>
+      <div class="pros-cons" style="margin-top:8px;gap:6px;">
+        <div class="pros" style="font-size:9px;padding:4px;"><h4 style="font-size:9px;">Pros</h4><ul style="margin:0;padding-left:12px;"><li>Simple to build</li><li>No WebSocket needed</li><li>Works with existing API</li></ul></div>
+        <div class="cons" style="font-size:9px;padding:4px;"><h4 style="font-size:9px;">Cons</h4><ul style="margin:0;padding-left:12px;"><li>No streaming output</li><li>No stdin (can't answer prompts)</li><li>Feels slow for long tasks</li></ul></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Simple Exec (collect then show)</h3>
+      <p>Run command, wait for it to finish, display all output at once. Uses existing HTTP POST endpoint. Fast to build, limited feel.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0d0d14;border-radius:6px;padding:12px;font-size:10px;">
+      <div style="color:#888;margin-bottom:6px;">Execution flow</div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <div style="background:#1e1e2e;padding:4px 8px;border-radius:3px;color:#FF5E1A;">▶ Run</div>
+        <div style="color:#555;">→</div>
+        <div style="background:#1e1e2e;padding:4px 8px;border-radius:3px;color:#aaa;">spawn()</div>
+        <div style="color:#555;">→</div>
+        <div style="background:#1e1e2e;padding:4px 8px;border-radius:3px;color:#00C4AA;">SSE stream</div>
+        <div style="color:#555;">→</div>
+        <div style="background:#0a1a0a;padding:4px 8px;border-radius:3px;color:#7fff7f;">live output</div>
+      </div>
+      <div style="margin-top:10px;background:#0a1a0a;padding:6px;border-radius:3px;">
+        <div style="color:#7fff7f;font-size:9px;font-family:monospace;">Output streams line by line in real-time.<br/>⏹ Stop button kills process.</div>
+      </div>
+      <div class="pros-cons" style="margin-top:8px;gap:6px;">
+        <div class="pros" style="font-size:9px;padding:4px;"><h4 style="font-size:9px;">Pros</h4><ul style="margin:0;padding-left:12px;"><li>Real-time streaming output</li><li>Stop button works</li><li>Reuses SSE pattern (already in FORGE)</li></ul></div>
+        <div class="cons" style="font-size:9px;padding:4px;"><h4 style="font-size:9px;">Cons</h4><ul style="margin:0;padding-left:12px;"><li>No stdin (can't type input)</li><li>No interactive programs</li><li>Colors may not render</li></ul></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Streaming Spawn (recommended)</h3>
+      <p>Spawn process, stream stdout/stderr via Server-Sent Events line by line. Real-time feel, Stop button, no extra dependencies. FORGE already uses SSE for AI streaming.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0d0d14;border-radius:6px;padding:12px;font-size:10px;">
+      <div style="color:#888;margin-bottom:6px;">Execution flow</div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <div style="background:#1e1e2e;padding:4px 8px;border-radius:3px;color:#FF5E1A;">▶ Run</div>
+        <div style="color:#555;">→</div>
+        <div style="background:#1e1e2e;padding:4px 8px;border-radius:3px;color:#aaa;">node-pty</div>
+        <div style="color:#555;">→</div>
+        <div style="background:#1e1e2e;padding:4px 8px;border-radius:3px;color:#00C4AA;">WebSocket</div>
+        <div style="color:#555;">→</div>
+        <div style="background:#0a1a0a;padding:4px 8px;border-radius:3px;color:#7fff7f;">xterm.js</div>
+      </div>
+      <div style="margin-top:10px;background:#0a1a0a;padding:6px;border-radius:3px;">
+        <div style="color:#7fff7f;font-size:9px;font-family:monospace;"><span style="color:#FF5E1A;">$</span> python script.py<br/>Enter your name: <span style="color:#fff;animation:blink 1s infinite;">█</span><br/>Hello, Ali!</div>
+      </div>
+      <div class="pros-cons" style="margin-top:8px;gap:6px;">
+        <div class="pros" style="font-size:9px;padding:4px;"><h4 style="font-size:9px;">Pros</h4><ul style="margin:0;padding-left:12px;"><li>Full terminal (stdin, colors, ANSI)</li><li>Interactive programs work</li><li>Real shell experience</li></ul></div>
+        <div class="cons" style="font-size:9px;padding:4px;"><h4 style="font-size:9px;">Cons</h4><ul style="margin:0;padding-left:12px;"><li>Needs node-pty (native module)</li><li>Needs xterm.js on frontend</li><li>WebSocket setup complexity</li><li>node-pty can be painful on Windows</li></ul></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Full PTY Terminal (node-pty + xterm.js)</h3>
+      <p>Real pseudo-terminal — ANSI colors, cursor control, stdin, interactive programs. The full VS Code terminal experience inside FORGE. Significant extra dependencies.</p>
+    </div>
+  </div>
+
+</div>

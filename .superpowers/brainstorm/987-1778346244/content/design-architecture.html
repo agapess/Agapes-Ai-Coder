@@ -1,0 +1,108 @@
+<h2>Phase 1 — Sandbox Architecture</h2>
+<p class="subtitle">How all the pieces connect. Review this before we go section by section.</p>
+
+<div class="mockup">
+  <div class="mockup-header">System Architecture Diagram</div>
+  <div class="mockup-body" style="font-family:monospace;font-size:11px;padding:16px;">
+
+    <!-- Frontend Box -->
+    <div style="display:flex;gap:16px;align-items:flex-start;">
+
+      <div style="flex:1;border:1px solid #FF5E1A;border-radius:6px;padding:12px;">
+        <div style="color:#FF5E1A;font-weight:bold;margin-bottom:10px;font-size:12px;">FRONTEND (React)</div>
+
+        <div style="background:#1e1e2e;border-radius:4px;padding:8px;margin-bottom:6px;">
+          <div style="color:#00C4AA;font-size:10px;margin-bottom:4px;">CodePanel.tsx (modified)</div>
+          <div style="color:#aaa;font-size:9px;">• File tabs + code viewer (existing)</div>
+          <div style="color:#aaa;font-size:9px;">• Run button per file</div>
+          <div style="color:#aaa;font-size:9px;">• Resizable split layout</div>
+        </div>
+
+        <div style="background:#1e1e2e;border-radius:4px;padding:8px;margin-bottom:6px;">
+          <div style="color:#00C4AA;font-size:10px;margin-bottom:4px;">TerminalPane.tsx (new)</div>
+          <div style="color:#aaa;font-size:9px;">• xterm.js terminal instance</div>
+          <div style="color:#aaa;font-size:9px;">• WebSocket client</div>
+          <div style="color:#aaa;font-size:9px;">• Stop / Clear controls</div>
+          <div style="color:#aaa;font-size:9px;">• Exit code display</div>
+        </div>
+
+        <div style="background:#1e1e2e;border-radius:4px;padding:8px;margin-bottom:6px;">
+          <div style="color:#00C4AA;font-size:10px;margin-bottom:4px;">WebSandbox (enhanced iframe)</div>
+          <div style="color:#aaa;font-size:9px;">• Intercepts console.log/error/warn</div>
+          <div style="color:#aaa;font-size:9px;">• Captures JS runtime errors</div>
+          <div style="color:#aaa;font-size:9px;">• PostMessages output → TerminalPane</div>
+        </div>
+
+        <div style="background:#1e1e2e;border-radius:4px;padding:8px;">
+          <div style="color:#00C4AA;font-size:10px;margin-bottom:4px;">useExecution hook (new)</div>
+          <div style="color:#aaa;font-size:9px;">• Language detection logic</div>
+          <div style="color:#aaa;font-size:9px;">• WebSocket session lifecycle</div>
+          <div style="color:#aaa;font-size:9px;">• Run / Stop / Clear state</div>
+        </div>
+      </div>
+
+      <!-- Arrows -->
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding-top:60px;">
+        <div style="color:#555;font-size:10px;">WebSocket</div>
+        <div style="color:#00C4AA;font-size:16px;">⇄</div>
+        <div style="color:#555;font-size:9px;">ws://localhost</div>
+        <div style="color:#555;font-size:9px;">:3001</div>
+      </div>
+
+      <!-- Backend Box -->
+      <div style="flex:1;border:1px solid #00C4AA;border-radius:6px;padding:12px;">
+        <div style="color:#00C4AA;font-weight:bold;margin-bottom:10px;font-size:12px;">BACKEND (Express + WS)</div>
+
+        <div style="background:#1e1e2e;border-radius:4px;padding:8px;margin-bottom:6px;">
+          <div style="color:#FF5E1A;font-size:10px;margin-bottom:4px;">WebSocket Server (new)</div>
+          <div style="color:#aaa;font-size:9px;">• Upgrades HTTP → WS on /terminal</div>
+          <div style="color:#aaa;font-size:9px;">• One session per connection</div>
+          <div style="color:#aaa;font-size:9px;">• Pipes PTY ↔ WebSocket</div>
+        </div>
+
+        <div style="background:#1e1e2e;border-radius:4px;padding:8px;margin-bottom:6px;">
+          <div style="color:#FF5E1A;font-size:10px;margin-bottom:4px;">ExecutionManager (new)</div>
+          <div style="color:#aaa;font-size:9px;">• Detects language from file ext</div>
+          <div style="color:#aaa;font-size:9px;">• Resolves runtime command</div>
+          <div style="color:#aaa;font-size:9px;">• Writes temp file to project dir</div>
+          <div style="color:#aaa;font-size:9px;">• Spawns node-pty process</div>
+          <div style="color:#aaa;font-size:9px;">• Kills on Stop / timeout (60s)</div>
+        </div>
+
+        <div style="background:#1e1e2e;border-radius:4px;padding:8px;">
+          <div style="color:#FF5E1A;font-size:10px;margin-bottom:4px;">Language → Runtime Map</div>
+          <div style="color:#aaa;font-size:9px;">.py → python / python3</div>
+          <div style="color:#aaa;font-size:9px;">.js .mjs → node</div>
+          <div style="color:#aaa;font-size:9px;">.ts → npx ts-node</div>
+          <div style="color:#aaa;font-size:9px;">.sh → bash</div>
+          <div style="color:#aaa;font-size:9px;">.sql → sqlite3</div>
+          <div style="color:#aaa;font-size:9px;">.html → open in browser preview</div>
+          <div style="color:#aaa;font-size:9px;">.rb → ruby · .go → go run</div>
+          <div style="color:#aaa;font-size:9px;">.rs → cargo run</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- PTY Row -->
+    <div style="margin-top:12px;border:1px dashed #333;border-radius:4px;padding:10px;display:flex;align-items:center;gap:12px;">
+      <div style="color:#555;font-size:10px;white-space:nowrap;">node-pty spawns:</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <div style="background:#1e1e2e;padding:3px 8px;border-radius:3px;color:#7fff7f;font-size:9px;">python script.py</div>
+        <div style="background:#1e1e2e;padding:3px 8px;border-radius:3px;color:#7fff7f;font-size:9px;">node server.js</div>
+        <div style="background:#1e1e2e;padding:3px 8px;border-radius:3px;color:#7fff7f;font-size:9px;">bash script.sh</div>
+        <div style="background:#1e1e2e;padding:3px 8px;border-radius:3px;color:#7fff7f;font-size:9px;">npx ts-node app.ts</div>
+        <div style="background:#1e1e2e;padding:3px 8px;border-radius:3px;color:#7fff7f;font-size:9px;">go run main.go</div>
+      </div>
+      <div style="color:#555;font-size:10px;margin-left:auto;">Real TTY · stdin · ANSI colors</div>
+    </div>
+
+  </div>
+</div>
+
+<div style="margin-top:16px;background:#1a1a14;border-left:3px solid #FF5E1A;padding:10px 14px;border-radius:0 4px 4px 0;">
+  <div style="color:#FF5E1A;font-size:10px;font-weight:bold;margin-bottom:4px;">KEY DECISION: Web files (HTML/CSS/JS)</div>
+  <div style="color:#aaa;font-size:10px;">HTML files open in the existing Preview iframe. A console interceptor script is injected into the iframe that captures console.log/warn/error and runtime exceptions, then PostMessages them to the TerminalPane below. This way web code and server code both show output in the same terminal strip.</div>
+</div>
+
+<p style="margin-top:16px;color:#888;font-size:10px;text-align:center;">Does this architecture look right? Reply in terminal.</p>

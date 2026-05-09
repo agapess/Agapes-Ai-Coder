@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)",
+      "Bash(node -e \"import\\('c:/Lovable/server/index.mjs'\\)\")",
+      "Bash(claude config:*)",
+      "Bash(node)",
+      "Bash(powershell -command ':*)",
+      "Bash(curl -s -X POST http://brconnector-test.sheincorp.cn/v1/messages -H 'content-type: application/json' -H 'anthropic-version: 2023-06-01' -H 'anthropic-beta: claude-code-20250219,interleaved-thinking-2025-05-14,effort-2025-11-24' -H 'anthropic-dangerous-direct-browser-access: true' -H 'user-agent: claude-cli/2.1.83 \\(external, claude-vscode, agent-sdk/0.2.92\\)' -H 'x-app: cli' -H 'authorization: Bearer sk-T8CUMmE-Pp-nRmf0v7iqjA' -H 'accept: application/json' -d '{\"model\":\"shannon-auto\",\"max_tokens\":20,\"stream\":false,\"messages\":[{\"role\":\"user\",\"content\":\"say hi\"}]}')"
+    ]
+  }
+}
