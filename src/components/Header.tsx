@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Plus, Code2, MonitorSmartphone, Columns2, Download, Settings, X, Cpu, Cloud } from 'lucide-react';
-import type { ViewMode, LlmConfig, GeneratedFile } from '../types';
+import type { ViewMode, LLMProvider, GeneratedFile } from '../types';
+import { ProviderSettings } from './ProviderSettings';
 
 interface Props {
   projectName:        string;
@@ -11,8 +12,8 @@ interface Props {
   isGenerating:       boolean;
   files:              GeneratedFile[];
   activeFilePath:     string;
-  llmConfig:          LlmConfig;
-  onLlmConfigChange:  (cfg: LlmConfig) => void;
+  llmConfig:          LLMProvider;
+  onLlmConfigChange:  (cfg: LLMProvider) => void;
 }
 
 export function Header({
@@ -23,8 +24,6 @@ export function Header({
   llmConfig, onLlmConfigChange,
 }: Props) {
   const [showSettings, setShowSettings] = useState(false);
-
-  const set = (patch: Partial<LlmConfig>) => onLlmConfigChange({ ...llmConfig, ...patch });
 
   const activeFile = files.find((f) => f.path === activeFilePath) ?? files[0] ?? null;
 
@@ -49,8 +48,6 @@ export function Header({
     { id: 'preview', icon: <MonitorSmartphone size={13} />,  label: 'Preview' },
   ];
 
-  const isLocal = llmConfig.provider === 'local';
-
   return (
     <header className="header">
       <div className="logo">
@@ -71,9 +68,9 @@ export function Header({
       <div className="hdr-space" />
 
       {/* Provider pill */}
-      <div className="provider-pill" title={isLocal ? llmConfig.localUrl : 'Anthropic Claude'}>
-        {isLocal ? <Cpu size={11} /> : <Cloud size={11} />}
-        {isLocal ? (llmConfig.localModel || 'Local LLM') : 'Claude'}
+      <div className="provider-pill" title={llmConfig.provider}>
+        {llmConfig.provider === 'ollama' || llmConfig.provider === 'lmstudio' ? <Cpu size={11} /> : <Cloud size={11} />}
+        {llmConfig.model || llmConfig.provider}
       </div>
 
       {isGenerating && (
@@ -114,60 +111,10 @@ export function Header({
 
         {showSettings && (
           <div className="settings-panel">
-            <div className="settings-title">LLM Provider</div>
-
-            <div className="provider-toggle">
-              <button className={`provider-btn${!isLocal ? ' active' : ''}`} onClick={() => set({ provider: 'anthropic' })}>
-                <Cloud size={13} /> Anthropic
-              </button>
-              <button className={`provider-btn${isLocal ? ' active' : ''}`} onClick={() => set({ provider: 'local' })}>
-                <Cpu size={13} /> Local LLM
-              </button>
-            </div>
-
-            {!isLocal && (
-              <>
-                <div className="settings-row">
-                  <label className="settings-label">Base URL <span style={{ opacity: .5 }}>(optional)</span></label>
-                  <input className="settings-input" type="url"
-                    value={llmConfig.anthropicBaseUrl} onChange={(e) => set({ anthropicBaseUrl: e.target.value })}
-                    placeholder="https://api.anthropic.com" spellCheck={false} />
-                  <p className="settings-hint">Custom proxy endpoint. Leave blank for default.</p>
-                </div>
-                <div className="settings-row">
-                  <label className="settings-label">API Key <span style={{ opacity: .5 }}>(optional)</span></label>
-                  <input className="settings-input" type="password"
-                    value={llmConfig.anthropicKey} onChange={(e) => set({ anthropicKey: e.target.value })}
-                    placeholder="sk-ant-..." spellCheck={false} autoComplete="off" />
-                  <p className="settings-hint">Leave blank to use server's <code>ANTHROPIC_API_KEY</code>.</p>
-                </div>
-              </>
-            )}
-
-            {isLocal && (
-              <>
-                <div className="settings-row">
-                  <label className="settings-label">Base URL</label>
-                  <input className="settings-input" type="url"
-                    value={llmConfig.localUrl} onChange={(e) => set({ localUrl: e.target.value })}
-                    placeholder="http://localhost:1234/v1" spellCheck={false} />
-                  <p className="settings-hint">LM Studio default: <code>http://localhost:1234/v1</code></p>
-                </div>
-                <div className="settings-row">
-                  <label className="settings-label">Model name</label>
-                  <input className="settings-input" type="text"
-                    value={llmConfig.localModel} onChange={(e) => set({ localModel: e.target.value })}
-                    placeholder="e.g. llama-3.2-3b-instruct" spellCheck={false} />
-                  <p className="settings-hint">Must match the model loaded in LM Studio.</p>
-                </div>
-                <div className="settings-row">
-                  <label className="settings-label">API Key <span style={{ opacity: .5 }}>(optional)</span></label>
-                  <input className="settings-input" type="password"
-                    value={llmConfig.localKey} onChange={(e) => set({ localKey: e.target.value })}
-                    placeholder="Leave blank for LM Studio" spellCheck={false} autoComplete="off" />
-                </div>
-              </>
-            )}
+            <ProviderSettings
+              config={llmConfig}
+              onChange={onLlmConfigChange}
+            />
           </div>
         )}
       </div>

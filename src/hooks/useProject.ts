@@ -1,9 +1,9 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type {
-  Message, LlmConfig, GeneratedFile,
+  Message, LlmConfig, LLMProvider, GeneratedFile,
   ProjectSummary, StoredProject,
 } from '../types';
-import { DEFAULT_LLM_CONFIG } from '../types';
+import { DEFAULT_LLM_CONFIG, DEFAULT_LLM_PROVIDER } from '../types';
 
 // ── File parsing ──────────────────────────────────────────────
 const EXT_LANG: Record<string, string> = {
@@ -85,14 +85,26 @@ function parseFiles(text: string): ParseResult {
 }
 
 // ── Config helpers ────────────────────────────────────────────
-function loadConfig(): LlmConfig {
+function loadConfig(): LLMProvider {
   try {
     const raw = localStorage.getItem('forge_llm_config');
-    if (raw) return { ...DEFAULT_LLM_CONFIG, ...JSON.parse(raw) };
+    if (raw) {
+      const stored = JSON.parse(raw) as Record<string, unknown>;
+      // Migrate legacy provider values
+      if (stored.provider === 'local') stored.provider = 'lmstudio';
+      if (!stored.provider && stored.anthropicKey) stored.provider = 'anthropic';
+      // Migrate legacy key names to new shape
+      if (!stored.apiKey && stored.anthropicKey) stored.apiKey = stored.anthropicKey;
+      if (!stored.baseUrl && stored.anthropicBaseUrl) stored.baseUrl = stored.anthropicBaseUrl;
+      if (!stored.model && stored.localModel) stored.model = stored.localModel;
+      if (!stored.baseUrl && stored.localUrl) stored.baseUrl = stored.localUrl;
+      return { ...DEFAULT_LLM_PROVIDER, ...stored } as LLMProvider;
+    }
   } catch { /* ignore */ }
+  // Check for legacy key
   const legacy = localStorage.getItem('forge_key');
-  if (legacy) return { ...DEFAULT_LLM_CONFIG, anthropicKey: legacy };
-  return DEFAULT_LLM_CONFIG;
+  if (legacy) return { ...DEFAULT_LLM_PROVIDER, provider: 'anthropic', apiKey: legacy };
+  return DEFAULT_LLM_PROVIDER;
 }
 
 function serializeMsgs(msgs: Message[]) {
@@ -117,7 +129,7 @@ export function useProject() {
   const [isGenerating,   setGenerating] = useState(false);
   const [streamingText,  setStreaming]  = useState('');
   const [error,          setError]      = useState<string | null>(null);
-  const [llmConfig,      setLlmCfgSt]  = useState<LlmConfig>(loadConfig);
+  const [llmConfig,      setLlmCfgSt]  = useState<LLMProvider>(loadConfig);
   const [projects,       setProjects]   = useState<ProjectSummary[]>([]);
 
   const readerRef  = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
@@ -127,7 +139,7 @@ export function useProject() {
   snap.current     = { projectId, projectName, messages, files, activeFilePath };
 
   // ── LLM config ──────────────────────────────────────────────
-  const setLlmConfig = useCallback((cfg: LlmConfig) => {
+  const setLlmConfig = useCallback((cfg: LLMProvider) => {
     setLlmCfgSt(cfg);
     localStorage.setItem('forge_llm_config', JSON.stringify(cfg));
   }, []);
@@ -373,7 +385,9 @@ export function useProject() {
   // ── Derived ───────────────────────────────────────────────────
   const streamingExplanation = streamingText ? parseFiles(streamingText).explanation : '';
   const needsSetup =
-    llmConfig.provider === 'anthropic' ? !llmConfig.anthropicKey : !llmConfig.localUrl;
+    (llmConfig.provider === 'anthropic' || llmConfig.provider === 'openai' || llmConfig.provider === 'gemini' || llmConfig.provider === 'custom')
+      ? !llmConfig.apiKey
+      : false; // ollama/lmstudio don't strictly need a key
 
   return {
     projectId,

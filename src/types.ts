@@ -96,6 +96,13 @@ export interface LLMProvider {
   model?: string;
 }
 
+export const DEFAULT_LLM_PROVIDER: LLMProvider = {
+  provider: 'anthropic',
+  apiKey:   '',
+  baseUrl:  '',
+  model:    '',
+};
+
 // ── Auto-Fix ──────────────────────────────────────────────────
 
 export type AutoFixStatus =

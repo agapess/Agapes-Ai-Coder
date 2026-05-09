@@ -1010,3 +1010,94 @@ a { text-decoration: none; color: inherit; }
   animation: spin .75s linear infinite;
 }
 @keyframes spin { to { transform:rotate(360deg); } }
+
+/* ── TerminalPane ───────────────────────────────────────────── */
+.terminal-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #060810;
+  border-top: 2px solid #FF5E1A33;
+}
+
+.terminal-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 12px;
+  background: #0d0d18;
+  border-bottom: 1px solid #1a1a2e;
+  min-height: 32px;
+  flex-shrink: 0;
+}
+
+.terminal-label {
+  color: #00C4AA;
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 0.08em;
+}
+
+.terminal-command {
+  color: #555;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.exit-badge {
+  font-size: 9px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.exit-ok   { color: #7fff7f; background: #0a1a0a; border: 1px solid #1a3a1a; }
+.exit-fail { color: #ff7f7f; background: #1a0a0a; border: 1px solid #3a1a1a; }
+
+.terminal-btn {
+  background: #1a1a2e;
+  border: none;
+  color: #555;
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.terminal-btn:hover:not(:disabled) { color: #aaa; background: #252540; }
+.terminal-btn:disabled { opacity: 0.4; cursor: default; }
+
+.terminal-body {
+  flex: 1;
+  min-height: 0;
+  padding: 4px;
+}
+
+.terminal-body .xterm { height: 100%; }
+
+/* ── Test Connection button ─────────────────────────────────── */
+.btn-test {
+  background: #1a1a2e;
+  border: 1px solid #333;
+  color: #aaa;
+  font-size: 10px;
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.btn-test:hover:not(:disabled) { border-color: #FF5E1A; color: #FF5E1A; }
+.btn-test:disabled { opacity: 0.5; cursor: default; }
+.terminal-body .xterm-viewport { border-radius: 0; }

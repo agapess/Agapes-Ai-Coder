@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, type FormEvent, type KeyboardEvent } from 'react';
 import { Send, Square, Zap } from 'lucide-react';
-import type { Message, LlmConfig } from '../types';
+import type { Message, LLMProvider } from '../types';
 
 // ── Suggestions shown when chat is empty ─────────────────────
 const SUGGESTIONS = [
@@ -85,8 +85,8 @@ interface Props {
   messages: Message[];
   isGenerating: boolean;
   streamingExplanation: string;
-  llmConfig: LlmConfig;
-  onLlmConfigChange: (cfg: LlmConfig) => void;
+  llmConfig: LLMProvider;
+  onLlmConfigChange: (cfg: LLMProvider) => void;
   needsSetup: boolean;
   onSend: (text: string) => void;
   onStop: () => void;
@@ -134,35 +134,20 @@ export function ChatPanel({
     }
   };
 
-  const isLocal = llmConfig.provider === 'local';
-
   return (
     <aside className="chat-panel">
       {/* Setup notice */}
-      {needsSetup && !isLocal && (
+      {needsSetup && (
         <div className="api-notice">
-          <span className="api-notice-text">Anthropic key</span>
+          <span className="api-notice-text">API Key</span>
           <input
             className="api-notice-input"
             type="password"
-            placeholder="sk-ant-…"
-            value={llmConfig.anthropicKey}
-            onChange={(e) => onLlmConfigChange({ ...llmConfig, anthropicKey: e.target.value })}
+            placeholder="Enter API key…"
+            value={llmConfig.apiKey || ''}
+            onChange={(e) => onLlmConfigChange({ ...llmConfig, apiKey: e.target.value })}
             spellCheck={false}
             autoComplete="off"
-          />
-        </div>
-      )}
-      {needsSetup && isLocal && (
-        <div className="api-notice">
-          <span className="api-notice-text">LM Studio URL</span>
-          <input
-            className="api-notice-input"
-            type="url"
-            placeholder="http://localhost:1234/v1"
-            value={llmConfig.localUrl}
-            onChange={(e) => onLlmConfigChange({ ...llmConfig, localUrl: e.target.value })}
-            spellCheck={false}
           />
         </div>
       )}
