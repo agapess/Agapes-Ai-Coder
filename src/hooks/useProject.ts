@@ -262,6 +262,11 @@ export function useProject() {
     });
   }, []);
 
+  // ── Remove a file (used by review mode to revert newly created files) ──
+  const removeFile = useCallback((path: string) => {
+    setFiles(prev => prev.filter(f => f.path !== path));
+  }, []);
+
   // ── Stop generation ──────────────────────────────────────────
   const stopGeneration = useCallback(() => {
     readerRef.current?.cancel().catch(() => undefined);
@@ -553,6 +558,7 @@ export function useProject() {
     loadProject,
     deleteProject,
     updateFileContent,
+    removeFile,
     fetchProjects,
   };
 }
