@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
+import JSZip from 'jszip';
 import {
-  Plus, Trash2, Clock, FolderInput,
+  Plus, Trash2, Clock, FolderInput, Download, Upload,
   FolderOpen, Folder, FileCode, FileText, File,
 } from 'lucide-react';
 import type { ProjectSummary, GeneratedFile } from '../types';
+import { detectLang } from '../hooks/useProject';
+import { GitPanel }   from './GitPanel';
 
 // ── File tree helpers ─────────────────────────────────────────
 interface TreeNode {
@@ -127,22 +130,67 @@ interface Props {
   activeProjectId: string;
   files:           GeneratedFile[];
   activeFilePath:  string;
+  projectName:     string;
+  isAdmin?:        boolean;
   onNewProject:    () => void;
   onSelectProject: (id: string) => void;
   onDeleteProject: (id: string) => void;
   onSelectFile:    (path: string) => void;
+  onImport:        (files: GeneratedFile[], name: string) => void;
 }
 
 async function openFolder(projectId: string) {
-  await fetch(`/api/projects/${projectId}/open-folder`, { method: 'POST' });
+  await fetch(`/api/projects/${projectId}/open-folder`, { method: 'POST', credentials: 'include' });
+}
+
+async function downloadZip(files: GeneratedFile[], name: string) {
+  const zip = new JSZip();
+  for (const f of files) zip.file(f.path, f.content);
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `${name.replace(/[^a-z0-9_\-. ]/gi, '_') || 'project'}.zip`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export function Sidebar({
   projects, activeProjectId, files, activeFilePath,
-  onNewProject, onSelectProject, onDeleteProject, onSelectFile,
+  projectName, isAdmin,
+  onNewProject, onSelectProject, onDeleteProject, onSelectFile, onImport,
 }: Props) {
   const [hoveredId,    setHoveredId]    = useState<string | null>(null);
   const [confirmDelete,setConfirmDelete] = useState<string | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImportChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const fileList = e.target.files;
+    if (!fileList || fileList.length === 0) return;
+    const arr = Array.from(fileList);
+    let imported: GeneratedFile[];
+    let name: string;
+    if (arr.length === 1 && arr[0].name.endsWith('.zip')) {
+      const zip = await JSZip.loadAsync(arr[0]);
+      const extracted: GeneratedFile[] = [];
+      for (const [zipPath, entry] of Object.entries(zip.files)) {
+        if ((entry as JSZip.JSZipObject).dir || zipPath.includes('__MACOSX') || zipPath.includes('.DS_Store')) continue;
+        const content = await (entry as JSZip.JSZipObject).async('string');
+        extracted.push({ path: zipPath, lang: detectLang(zipPath), content });
+      }
+      imported = extracted;
+      name = arr[0].name.replace(/\.zip$/, '');
+    } else {
+      imported = await Promise.all(arr.map((f) => new Promise<GeneratedFile>((res) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => res({ path: f.name, lang: detectLang(f.name), content: ev.target!.result as string });
+        reader.readAsText(f);
+      })));
+      name = 'Imported Project';
+    }
+    if (imported.length > 0) onImport(imported, name);
+    e.target.value = '';
+  };
 
   const handleDelete = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -166,6 +214,17 @@ export function Sidebar({
           <button className="sb-icon-btn" onClick={onNewProject} title="New project">
             <Plus size={13} />
           </button>
+          <button className="sb-icon-btn" onClick={() => importInputRef.current?.click()} title="Import project (ZIP or files)">
+            <Upload size={13} />
+          </button>
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".zip,*"
+            multiple
+            style={{ display: 'none' }}
+            onChange={handleImportChange}
+          />
         </div>
 
         <div className="sb-list">
@@ -213,11 +272,18 @@ export function Sidebar({
           <div className="sb-header">
             <span className="sb-header-label">Files</span>
             <span className="sb-file-count">{files.length}</span>
-            {activeProjectId && (
+            <button
+              className="sb-icon-btn"
+              onClick={() => downloadZip(files, projectName)}
+              title="Download project as ZIP"
+            >
+              <Download size={13} />
+            </button>
+            {isAdmin && activeProjectId && (
               <button
                 className="sb-icon-btn"
                 onClick={() => openFolder(activeProjectId)}
-                title="Open project folder"
+                title="Open project folder on server"
               >
                 <FolderInput size={13} />
               </button>
@@ -236,6 +302,8 @@ export function Sidebar({
           </div>
         </div>
       )}
+      {/* ── Git ── */}
+      <GitPanel projectId={activeProjectId} />
     </aside>
   );
 }
