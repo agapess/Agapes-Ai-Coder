@@ -3,7 +3,8 @@ import cors       from 'cors';
 import { createProvider } from './providers/index.mjs';
 import fs         from 'fs/promises';
 import path       from 'path';
-import { spawn }  from 'child_process';
+import { spawn, execFile } from 'child_process';
+import { promisify }       from 'util';
 import { fileURLToPath } from 'url';
 import { WebSocketServer } from 'ws';
 import { ExecutionManager } from './execution.mjs';
@@ -576,6 +577,17 @@ function safeFilePath(projectDir, filePath) {
 function projectDir(id)  { return path.join(PROJECTS_DIR, safeId(id)); }
 function metaPath(id)    { return path.join(projectDir(id), '.forge', 'project.json'); }
 
+const execFileAsync = promisify(execFile);
+
+async function runGit(dir, args) {
+  try {
+    const { stdout, stderr } = await execFileAsync('git', args, { cwd: dir, timeout: 15000 });
+    return { stdout: stdout.trim(), stderr: stderr.trim(), ok: true };
+  } catch (err) {
+    return { stdout: '', stderr: err.stderr?.trim() ?? err.message, ok: false };
+  }
+}
+
 // ── List all projects ─────────────────────────────────────────
 app.get('/api/projects', authenticate, async (req, res) => {
   const userId  = req.user?.id ?? null;
@@ -761,6 +773,56 @@ app.post('/api/projects/:id/open-folder', authenticate, async (req, res) => {
 
   spawn(cmd, args, { detached: true, stdio: 'ignore' }).unref();
   res.json({ ok: true, folderPath: dir });
+});
+
+// ── Git endpoints ──────────────────────────────────────────────
+app.get('/api/projects/:id/git/status', authenticate, async (req, res) => {
+  const dir = projectDir(safeId(req.params.id));
+  try { await fs.access(path.join(dir, '.git')); }
+  catch { return res.json({ initialized: false, branch: '', dirty: 0, ahead: 0, remote: null, lastCommit: null }); }
+
+  const [branchR, statusR, aheadR, logR, remoteR] = await Promise.all([
+    runGit(dir, ['rev-parse', '--abbrev-ref', 'HEAD']),
+    runGit(dir, ['status', '--porcelain']),
+    runGit(dir, ['rev-list', '--count', '@{u}..HEAD']),
+    runGit(dir, ['log', '-1', '--format=%H|%s|%cI']),
+    runGit(dir, ['remote', 'get-url', 'origin']),
+  ]);
+
+  const branch = branchR.ok ? branchR.stdout : 'main';
+  const dirty  = statusR.ok ? statusR.stdout.split('\n').filter(Boolean).length : 0;
+  const ahead  = aheadR.ok && !aheadR.stderr ? (parseInt(aheadR.stdout, 10) || 0) : 0;
+
+  let lastCommit = null;
+  if (logR.ok && logR.stdout) {
+    const [hash, message, date] = logR.stdout.split('|');
+    if (hash) lastCommit = { hash, shortHash: hash.slice(0, 7), message: message ?? '', date: date ?? '' };
+  }
+
+  let remote = null;
+  if (remoteR.ok && remoteR.stdout) {
+    try {
+      const u = new URL(remoteR.stdout);
+      u.username = ''; u.password = '';
+      remote = u.hostname + u.pathname;
+    } catch { remote = remoteR.stdout; }
+  }
+
+  res.json({ initialized: true, branch, dirty, ahead, remote, lastCommit });
+});
+
+app.post('/api/projects/:id/git/init', authenticate, async (req, res) => {
+  const dir = projectDir(safeId(req.params.id));
+  let r = await runGit(dir, ['init', '-b', 'main']);
+  if (!r.ok) {
+    r = await runGit(dir, ['init']);
+    if (!r.ok) return res.status(500).json({ error: r.stderr || 'git init failed' });
+    await runGit(dir, ['symbolic-ref', 'HEAD', 'refs/heads/main']);
+  }
+  await runGit(dir, ['config', 'user.name', 'Agapes AI']);
+  await runGit(dir, ['config', 'user.email', 'ai@agapes.us']);
+  await runGit(dir, ['commit', '--allow-empty', '-m', 'Initial commit']);
+  res.json({ ok: true });
 });
 
 app.post('/api/install-packages', authenticate, async (req, res) => {
