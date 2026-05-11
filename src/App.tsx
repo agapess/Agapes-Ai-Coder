@@ -16,7 +16,8 @@ import { usePlaywrightTest } from './hooks/usePlaywrightTest';
 import { useAuth }        from './hooks/useAuth';
 import { usePublish }     from './hooks/usePublish';
 import { detectEntryPointFromFiles } from './lib/entryPoint';
-import type { ViewMode, ProjectPlan, GeneratedFile } from './types';
+import { computeHunks, applyAcceptedHunks } from './hooks/useDiff';
+import type { ViewMode, ProjectPlan, GeneratedFile, PendingDiff } from './types';
 
 function buildAttachmentContext(paths: string[], files: GeneratedFile[]): string {
   const attached = paths.map((p) => files.find((f) => f.path === p)).filter(Boolean) as GeneratedFile[];
@@ -50,6 +51,23 @@ export function App() {
   // Local cache of ALL providers' saved settings so we can restore on switch
   const providerCacheRef   = useRef<Record<string, { key: string; baseUrl: string; model: string }>>({});
   const prevProviderRef    = useRef(project.llmConfig.provider);
+
+  // ── Agent mode state machine ──────────────────────────────
+  type AgentPhase = 'idle' | 'generating' | 'running' | 'fixing';
+  const agentPhaseRef = useRef<AgentPhase>('idle');
+  const agentIterRef  = useRef(0);
+  const AGENT_MAX     = 5;
+  const [agentStatus, setAgentStatus] = useState<{
+    iteration: number; maxIterations: number; phase: 'generating' | 'running' | 'fixing';
+  } | null>(null);
+
+  // ── Review mode ───────────────────────────────────────────
+  const [reviewMode,         setReviewMode]         = useState(false);
+  const [pendingDiffs,       setPendingDiffs]        = useState<PendingDiff[]>([]);
+  const [showReviewConfirm,  setShowReviewConfirm]  = useState(false);
+  const beforeSnapshotRef = useRef<GeneratedFile[]>([]);
+  const reviewModeRef     = useRef(false);
+  reviewModeRef.current   = reviewMode;
 
   // ── Clone flow ────────────────────────────────────────────
   const [isCloning,  setIsCloning]  = useState(false);
@@ -85,6 +103,31 @@ export function App() {
   const [isPlanLoading, setIsPlanLoading] = useState(false);
 
   const handleSend = async (text: string, imageData?: string, attachedFilePaths: string[] = []) => {
+    // Capture snapshot before send when review mode is on
+    if (reviewModeRef.current) {
+      beforeSnapshotRef.current = project.files.map(f => ({ ...f }));
+    }
+
+    // Agent mode — start autonomous generate → run → fix loop
+    if (chatMode === 'agent') {
+      const MAX_CHARS = 4000;
+      const fileCtx = project.files.length > 0
+        ? project.files
+            .map((f) => `<forge-file path="${f.path}" lang="${f.lang}">\n${f.content.slice(0, MAX_CHARS)}\n</forge-file>`)
+            .join('\n\n')
+        : '';
+      const fullPrompt = fileCtx ? `${fileCtx}\n\nUser request: ${text}` : text;
+      agentPhaseRef.current = 'generating';
+      agentIterRef.current  = 1;
+      setAgentStatus({ iteration: 1, maxIterations: AGENT_MAX, phase: 'generating' });
+      project.sendMessage(
+        fullPrompt, undefined,
+        project.files.length > 0 ? '/api/generate' : undefined,
+        project.files.length > 0,
+      );
+      return;
+    }
+
     const attachCtx = buildAttachmentContext(attachedFilePaths, project.files);
     const displayText = attachedFilePaths.length > 0
       ? `${text}\n\n[Attached: ${attachedFilePaths.map((p) => p.split('/').pop()).join(', ')}]`
@@ -253,6 +296,102 @@ export function App() {
     }
   }, [project.isGenerating, project.files, project.llmConfig.autoRun]);
 
+  // Agent: when generation finishes, auto-run
+  useEffect(() => {
+    const phase = agentPhaseRef.current;
+    if (phase !== 'generating' && phase !== 'fixing') return;
+    if (project.isGenerating) return;
+
+    const entryPath = detectEntryPointFromFiles(project.files.map((f) => f.path));
+    if (!entryPath) {
+      agentPhaseRef.current = 'idle';
+      setAgentStatus(null);
+      return;
+    }
+    const file = project.files.find((f) => f.path === entryPath);
+    if (!file) { agentPhaseRef.current = 'idle'; setAgentStatus(null); return; }
+
+    const isWeb = /\.(html?|htm)$/i.test(file.path);
+    if (!isWeb) setViewMode('split');
+
+    agentPhaseRef.current = 'running';
+    setAgentStatus((s) => s ? { ...s, phase: 'running' } : null);
+    execRun(file.path, file.content, project.files.map((f) => ({ path: f.path, content: f.content })));
+  }, [project.isGenerating]);
+
+  // Agent: when run exits, fix or declare success
+  useEffect(() => {
+    if (agentPhaseRef.current !== 'running') return;
+    if (execState.status !== 'exited') return;
+
+    if (execState.exitCode === 0) {
+      agentPhaseRef.current = 'idle';
+      setAgentStatus(null);
+      return;
+    }
+
+    if (agentIterRef.current >= AGENT_MAX) {
+      agentPhaseRef.current = 'idle';
+      setAgentStatus(null);
+      writeRef.current?.(`\r\n\x1b[31m[Agent] Stopped after ${AGENT_MAX} iterations.\x1b[0m\r\n`);
+      return;
+    }
+
+    agentIterRef.current += 1;
+    agentPhaseRef.current = 'fixing';
+    setAgentStatus({ iteration: agentIterRef.current, maxIterations: AGENT_MAX, phase: 'fixing' });
+
+    const MAX_CHARS = 4000;
+    const fileContext = project.files
+      .map((f) => `<forge-file path="${f.path}" lang="${f.lang}">\n${f.content.slice(0, MAX_CHARS)}\n</forge-file>`)
+      .join('\n\n');
+    const errorOutput = terminalOutputRef.current.slice(0, 3000) || `Exit code ${execState.exitCode}`;
+    const fixPrompt =
+      `Current files:\n\n${fileContext}\n\n` +
+      `Error output:\n\`\`\`\n${errorOutput}\n\`\`\`\n\n` +
+      `Fix the code so it runs without errors. Output only corrected file(s) using <forge-file> tags.`;
+    project.sendMessage(fixPrompt, undefined, '/api/generate', true);
+  }, [execState.status, execState.exitCode]);
+
+  // Review mode: compute diffs after generation completes
+  useEffect(() => {
+    if (!reviewModeRef.current) return;
+    if (project.isGenerating) return;
+    const before = beforeSnapshotRef.current;
+    if (before.length === 0 && project.files.length === 0) return;
+
+    const diffs: PendingDiff[] = [];
+
+    for (const newFile of project.files) {
+      const orig        = before.find(f => f.path === newFile.path);
+      const origContent = orig?.content ?? '';
+      if (origContent === newFile.content) continue;
+      const hunks = computeHunks(origContent, newFile.content);
+      if (hunks.length === 0) continue;
+      diffs.push({
+        path: newFile.path, lang: newFile.lang,
+        originalContent: origContent, newContent: newFile.content,
+        hunks, resolvedHunks: hunks.map(() => 'pending' as const),
+      });
+      project.updateFileContent(newFile.path, origContent);
+    }
+
+    // Brand-new files not present in before snapshot
+    for (const newFile of project.files) {
+      if (before.find(f => f.path === newFile.path)) continue;
+      const hunks = computeHunks('', newFile.content);
+      diffs.push({
+        path: newFile.path, lang: newFile.lang,
+        originalContent: '', newContent: newFile.content,
+        hunks, resolvedHunks: hunks.map(() => 'pending' as const),
+      });
+      project.removeFile(newFile.path);
+    }
+
+    if (diffs.length > 0) setPendingDiffs(diffs);
+    beforeSnapshotRef.current = [];
+  }, [project.isGenerating]);
+
   // Auto-snapshot on successful run (exit code 0)
   useEffect(() => {
     const prev = prevExecStatusRef.current;
@@ -267,6 +406,8 @@ export function App() {
     refreshSnapshots();
     resetTest();
     resetPlaywright();
+    setPendingDiffs([]);
+    beforeSnapshotRef.current = [];
   }, [refreshSnapshots, resetTest, resetPlaywright]);
 
   // Sync providerSettings from server (fires on login / session restore)
@@ -346,6 +487,78 @@ export function App() {
     setViewMode('split');
   };
 
+  const handleCodeAction = (action: 'explain' | 'refactor' | 'docs', content: string, filename: string) => {
+    const MODE_MAP = { explain: 'explain', refactor: 'refactor', docs: 'chat' } as const;
+    const PROMPT_MAP = {
+      explain:  `Explain the following code from \`${filename}\` in clear terms:\n\n\`\`\`\n${content}\n\`\`\``,
+      refactor: `Refactor the following code from \`${filename}\`. Improve readability, maintainability, and performance:\n\n\`\`\`\n${content}\n\`\`\``,
+      docs:     `Add documentation comments to the following code from \`${filename}\`. Use appropriate doc-comment style for the language:\n\n\`\`\`\n${content}\n\`\`\``,
+    };
+    setChatMode(MODE_MAP[action]);
+    const endpoint = action === 'docs' ? '/api/generate' : '/api/chat';
+    project.sendMessage(PROMPT_MAP[action], undefined, endpoint, action === 'docs');
+  };
+
+  const handleAcceptHunk = (path: string, hunkIdx: number) => {
+    setPendingDiffs(prev => {
+      const next = prev.map(d => {
+        if (d.path !== path) return d;
+        const resolvedHunks = [...d.resolvedHunks];
+        resolvedHunks[hunkIdx] = 'accepted';
+        const merged = applyAcceptedHunks(d.originalContent, d.hunks, resolvedHunks);
+        project.updateFileContent(path, merged);
+        if (resolvedHunks.every(r => r !== 'pending')) return null;
+        return { ...d, resolvedHunks };
+      });
+      return next.filter(Boolean) as PendingDiff[];
+    });
+  };
+
+  const handleRejectHunk = (path: string, hunkIdx: number) => {
+    setPendingDiffs(prev => {
+      const next = prev.map(d => {
+        if (d.path !== path) return d;
+        const resolvedHunks = [...d.resolvedHunks];
+        resolvedHunks[hunkIdx] = 'rejected';
+        if (resolvedHunks.every(r => r !== 'pending')) return null;
+        return { ...d, resolvedHunks };
+      });
+      return next.filter(Boolean) as PendingDiff[];
+    });
+  };
+
+  const handleAcceptAll = (path: string) => {
+    const diff = pendingDiffs.find(d => d.path === path);
+    if (!diff) return;
+    project.updateFileContent(path, diff.newContent);
+    setPendingDiffs(prev => prev.filter(d => d.path !== path));
+  };
+
+  const handleRejectAll = (path: string) => {
+    setPendingDiffs(prev => prev.filter(d => d.path !== path));
+  };
+
+  const handleToggleReviewMode = () => {
+    if (reviewMode && pendingDiffs.length > 0) {
+      setShowReviewConfirm(true);
+      return;
+    }
+    setReviewMode(v => !v);
+  };
+
+  const handleReviewConfirmAcceptAll = () => {
+    pendingDiffs.forEach(d => project.updateFileContent(d.path, d.newContent));
+    setPendingDiffs([]);
+    setShowReviewConfirm(false);
+    setReviewMode(false);
+  };
+
+  const handleReviewConfirmRejectAll = () => {
+    setPendingDiffs([]);
+    setShowReviewConfirm(false);
+    setReviewMode(false);
+  };
+
   // ── Auth gate ─────────────────────────────────────────────
   if (auth.isLoading) {
     return (
@@ -421,6 +634,8 @@ export function App() {
           cloneError={cloneError}
           chatMode={chatMode}
           onChatModeChange={setChatMode}
+          agentStatus={agentStatus}
+          reviewModeActive={reviewMode}
         />
 
         <div className="editor-area">
@@ -449,6 +664,19 @@ export function App() {
               onUnpublish={() => publishHook.unpublish(project.projectId)}
               hasUser={!!auth.user}
               onFixWithAI={handleFixWithAI}
+              disableAutoFix={agentPhaseRef.current !== 'idle'}
+              onCodeAction={handleCodeAction}
+              reviewMode={reviewMode}
+              onToggleReviewMode={handleToggleReviewMode}
+              pendingDiffs={pendingDiffs}
+              showReviewConfirm={showReviewConfirm}
+              onAcceptHunk={handleAcceptHunk}
+              onRejectHunk={handleRejectHunk}
+              onAcceptAll={handleAcceptAll}
+              onRejectAll={handleRejectAll}
+              onReviewConfirmAcceptAll={handleReviewConfirmAcceptAll}
+              onReviewConfirmRejectAll={handleReviewConfirmRejectAll}
+              onReviewConfirmKeep={() => setShowReviewConfirm(false)}
             />
           )}
           {(viewMode === 'preview' || viewMode === 'split') && (
