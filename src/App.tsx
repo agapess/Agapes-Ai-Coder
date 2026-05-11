@@ -16,7 +16,17 @@ import { usePlaywrightTest } from './hooks/usePlaywrightTest';
 import { useAuth }        from './hooks/useAuth';
 import { usePublish }     from './hooks/usePublish';
 import { detectEntryPointFromFiles } from './lib/entryPoint';
-import type { ViewMode, ProjectPlan } from './types';
+import type { ViewMode, ProjectPlan, GeneratedFile } from './types';
+
+function buildAttachmentContext(paths: string[], files: GeneratedFile[]): string {
+  const attached = paths.map((p) => files.find((f) => f.path === p)).filter(Boolean) as GeneratedFile[];
+  if (attached.length === 0) return '';
+  const MAX = 6000;
+  const blocks = attached.map(
+    (f) => `=== ${f.path} ===\n${f.content.slice(0, MAX)}${f.content.length > MAX ? '\n...(truncated)' : ''}`
+  );
+  return `[Attached files]\n${blocks.join('\n\n')}\n\n`;
+}
 
 export function App() {
   const auth    = useAuth();
@@ -74,7 +84,12 @@ export function App() {
   const [pendingPrompt, setPendingPrompt] = useState('');
   const [isPlanLoading, setIsPlanLoading] = useState(false);
 
-  const handleSend = async (text: string, imageData?: string) => {
+  const handleSend = async (text: string, imageData?: string, attachedFilePaths: string[] = []) => {
+    const attachCtx = buildAttachmentContext(attachedFilePaths, project.files);
+    const displayText = attachedFilePaths.length > 0
+      ? `${text}\n\n[Attached: ${attachedFilePaths.map((p) => p.split('/').pop()).join(', ')}]`
+      : undefined;
+
     const activeFile = project.files.find((f) => f.path === project.activeFilePath) ?? project.files[0];
 
     // Non-build modes → conversational endpoint, inject active file as context
@@ -89,35 +104,39 @@ export function App() {
       const fileCtx = activeFile
         ? `\n\nFile: ${activeFile.path}\n\`\`\`\n${activeFile.content.slice(0, 6000)}\n\`\`\`\n\nUser message: `
         : '';
-      const fullText = chatMode === 'chat' ? text : (prefix + fileCtx + text);
-      project.sendMessage(fullText, imageData, '/api/chat');
+      const aiText = chatMode === 'chat'
+        ? (attachCtx ? `${attachCtx}User message: ${text}` : text)
+        : `${attachCtx}${prefix}${fileCtx}${text}`;
+      project.sendMessage(aiText, imageData, '/api/chat', false, displayText);
       return;
     }
 
     // Build mode with image → generate directly
     if (imageData) {
-      project.sendMessage(text, imageData);
+      const aiText = attachCtx ? `${attachCtx}User message: ${text}` : text;
+      project.sendMessage(aiText, imageData, undefined, undefined, displayText);
       return;
     }
 
     // Build mode, follow-up on existing project → include current files, merge result
     if (project.files.length > 0 || project.llmConfig.skipPlanning) {
       if (project.files.length > 0) {
-        // Inject current file content so the AI can make targeted edits
         const MAX_CHARS = 4000;
         const fileContext = project.files
           .map((f) => `<forge-file path="${f.path}" lang="${f.lang}">\n${f.content.slice(0, MAX_CHARS)}${f.content.length > MAX_CHARS ? '\n...(truncated)' : ''}\n</forge-file>`)
           .join('\n\n');
-        const fullPrompt = `Current project files:\n\n${fileContext}\n\nUser request: ${text}`;
-        project.sendMessage(fullPrompt, undefined, '/api/generate', true);
+        const fullPrompt = `${attachCtx}Current project files:\n\n${fileContext}\n\nUser request: ${text}`;
+        project.sendMessage(fullPrompt, undefined, '/api/generate', true, displayText);
       } else {
-        project.sendMessage(text);
+        const aiText = attachCtx ? `${attachCtx}User message: ${text}` : text;
+        project.sendMessage(aiText, undefined, undefined, undefined, displayText);
       }
       return;
     }
 
     // Build mode, fresh project → show planner
-    setPendingPrompt(text);
+    const aiText = attachCtx ? `${attachCtx}User message: ${text}` : text;
+    setPendingPrompt(aiText);
     setIsPlanLoading(true);
     try {
       const res = await fetch('/api/plan', {
@@ -125,7 +144,7 @@ export function App() {
         headers:     { 'Content-Type': 'application/json' },
         credentials: 'include',
         body:        JSON.stringify({
-          messages:  [{ role: 'user', content: text }],
+          messages:  [{ role: 'user', content: aiText }],
           llmConfig: project.llmConfig,
         }),
       });
@@ -133,7 +152,7 @@ export function App() {
       const { plan } = await res.json();
       setPendingPlan(plan);
     } catch {
-      project.sendMessage(text);
+      project.sendMessage(aiText, undefined, undefined, undefined, displayText);
     } finally {
       setIsPlanLoading(false);
     }
@@ -382,6 +401,7 @@ export function App() {
         />
 
         <ChatPanel
+          files={project.files}
           messages={project.messages}
           isGenerating={project.isGenerating}
           streamingExplanation={project.streamingExplanation}
