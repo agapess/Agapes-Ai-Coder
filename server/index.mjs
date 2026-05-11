@@ -825,6 +825,40 @@ app.post('/api/projects/:id/git/init', authenticate, async (req, res) => {
   res.json({ ok: true });
 });
 
+app.post('/api/projects/:id/git/commit', authenticate, async (req, res) => {
+  const dir = projectDir(safeId(req.params.id));
+  const { message } = req.body ?? {};
+  if (!message || typeof message !== 'string' || !message.trim()) {
+    return res.status(400).json({ error: 'message required' });
+  }
+  const msg = message.trim().slice(0, 500);
+  await runGit(dir, ['add', '-A']);
+  const r = await runGit(dir, ['commit', '-m', msg]);
+  if (!r.ok) {
+    if (r.stderr.includes('nothing to commit')) return res.status(400).json({ error: 'Nothing to commit' });
+    return res.status(500).json({ error: r.stderr || 'Commit failed' });
+  }
+  const hashM = r.stdout.match(/\[(?:main|master) ([a-f0-9]+)\]/);
+  res.json({ ok: true, hash: hashM?.[1] ?? '' });
+});
+
+app.get('/api/projects/:id/git/log', authenticate, async (req, res) => {
+  const dir = projectDir(safeId(req.params.id));
+  const r = await runGit(dir, ['log', '-10', '--format=%H|%s|%cI']);
+  if (!r.ok || !r.stdout) return res.json([]);
+  const commits = r.stdout.split('\n').filter(Boolean).map((line) => {
+    const [hash, message, date] = line.split('|');
+    return { hash: hash ?? '', shortHash: (hash ?? '').slice(0, 7), message: message ?? '', date: date ?? '' };
+  });
+  res.json(commits);
+});
+
+app.get('/api/projects/:id/git/diff', authenticate, async (req, res) => {
+  const dir = projectDir(safeId(req.params.id));
+  const r = await runGit(dir, ['diff', 'HEAD']);
+  res.json({ diff: r.ok ? r.stdout : '' });
+});
+
 app.post('/api/install-packages', authenticate, async (req, res) => {
   const { manager, packages, projectId } = req.body;
   if (!manager || !packages?.length || !projectId) {
