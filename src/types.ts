@@ -7,6 +7,7 @@ export interface Message {
   role:      MessageRole;
   content:   string;
   timestamp: Date;
+  usage?:    { inputTokens: number; outputTokens: number };
 }
 
 export interface LlmConfig {
@@ -65,6 +66,8 @@ export interface WsMessage {
   content?: string;
   lang?: string;
   cwd?: string;
+  projectId?: string;
+  allFiles?: { path: string; content: string }[];
   data?: string;
   cols?: number;
   rows?: number;
@@ -85,16 +88,18 @@ export type ProviderType =
   | 'anthropic'
   | 'openai'
   | 'gemini'
+  | 'openrouter'
   | 'ollama'
   | 'lmstudio'
   | 'custom';
 
 export interface LLMProvider {
-  provider: ProviderType;
-  apiKey?: string;
-  baseUrl?: string;
-  model?: string;
-  autoRun?: boolean;
+  provider:      ProviderType;
+  apiKey?:       string;
+  baseUrl?:      string;
+  model?:        string;
+  autoRun?:      boolean;
+  skipPlanning?: boolean;
 }
 
 export const DEFAULT_LLM_PROVIDER: LLMProvider = {
@@ -117,4 +122,56 @@ export interface AutoFixState {
   attempt: number;
   maxAttempts: number;
   lastError: string;
+}
+
+// ── Phase 2 ───────────────────────────────────────────────────
+
+export interface ProjectPlan {
+  summary:             string;    // "A weather dashboard with real-time data"
+  files:               string[];  // ["index.html", "style.css", "app.js"]
+  uses:                string[];  // ["OpenWeatherMap API", "Chart.js"]
+  features:            string[];  // ["current temp", "5-day forecast", "city search"]
+  clarifyingQuestion?: string;    // shown to user before confirming (e.g. "PWA or React Native?")
+  clarifyOptions?:     string[];  // choices for the clarifying question
+  suggestions?:        string[];  // quick-change chips shown in the "refine" mode
+}
+
+export type PlanStatus = 'idle' | 'loading' | 'ready';
+
+export interface Snapshot {
+  id:        string;  // safe folder name: ISO timestamp with : replaced by -
+  label:     string;  // first 80 chars of the prompt that created it
+  createdAt: string;  // ISO timestamp
+  fileCount: number;
+}
+
+export type TestStatus = 'idle' | 'running' | 'passed' | 'failed';
+
+export interface TestResult {
+  status:  TestStatus;
+  passed:  number;
+  failed:  number;
+  total:   number;
+  output:  string;
+}
+
+// ── Inline diff ───────────────────────────────────────────────
+
+export interface DiffHunk {
+  type:        'add' | 'remove' | 'replace';
+  beforeStart: number;   // 0-based line index in original
+  beforeCount: number;   // how many original lines this replaces
+  afterStart:  number;   // 0-based line index in new version
+  afterCount:  number;   // how many new lines this introduces
+  beforeLines: string[]; // lines being removed/replaced
+  afterLines:  string[]; // lines being added/replacing
+}
+
+export interface PendingDiff {
+  path:            string;
+  lang:            string;
+  originalContent: string;
+  newContent:      string;
+  hunks:           DiffHunk[];
+  resolvedHunks:   ('accepted' | 'rejected' | 'pending')[];
 }
