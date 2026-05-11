@@ -933,6 +933,20 @@ a { text-decoration: none; color: inherit; }
 .sb-git-spin { animation: sb-git-rotate 1s linear infinite; }
 @keyframes sb-git-rotate { to { transform: rotate(360deg); } }
 
+/* ── Agent banner ──────────────────────────────────────────── */
+.agent-banner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: linear-gradient(90deg, rgba(124,58,237,.18), rgba(124,58,237,.08));
+  border-bottom: 1px solid rgba(124,58,237,.3);
+  color: #a78bfa;
+  font-size: 11px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
 
 /* ============================================================
    EDITOR AREA
@@ -2408,3 +2422,154 @@ a { text-decoration: none; color: inherit; }
 
 /* Spin animation for refresh icon */
 .admin-spin { animation: spin 1s linear infinite; }
+
+/* ── Diff panel (review mode) ──────────────────────────────── */
+.diff-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: #040406;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+}
+
+.diff-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: #0a0a14;
+  border-bottom: 1px solid #1a1a2e;
+  flex-shrink: 0;
+}
+.diff-filename { color: var(--t2); font-size: 11px; font-weight: 500; }
+.diff-count    { color: var(--t4); font-size: 10px; margin-left: 4px; }
+.diff-toolbar-actions { margin-left: auto; display: flex; gap: 6px; }
+
+.diff-btn {
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background .15s;
+}
+.diff-btn:disabled { opacity: 0.35; cursor: default; }
+.diff-btn--accept { background: rgba(34,197,94,.12); color: #4ade80; border-color: rgba(34,197,94,.3); }
+.diff-btn--accept:not(:disabled):hover { background: rgba(34,197,94,.22); }
+.diff-btn--reject { background: rgba(239,68,68,.1); color: #f87171; border-color: rgba(239,68,68,.25); }
+.diff-btn--reject:not(:disabled):hover { background: rgba(239,68,68,.2); }
+
+.diff-body {
+  display: flex;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+.diff-col {
+  flex: 1;
+  min-width: 0;
+  border-right: 1px solid #111120;
+}
+.diff-col--after { border-right: none; }
+
+.diff-line {
+  padding: 0 14px;
+  line-height: 1.75;
+  white-space: pre;
+  color: var(--t3);
+}
+.diff-line--context { color: var(--t4); }
+.diff-line--remove  { background: rgba(239,68,68,.08); color: #f87171; }
+.diff-line--add     { background: rgba(34,197,94,.07); color: #4ade80; }
+.diff-line--pad     { background: rgba(120,120,180,.04); }
+.diff-gutter { display: inline-block; width: 14px; opacity: .7; user-select: none; }
+
+.diff-hunk-block {
+  border-top: 1px solid rgba(124,58,237,.15);
+  border-bottom: 1px solid rgba(124,58,237,.15);
+}
+.diff-hunk-block--resolved { opacity: 0.55; }
+
+.diff-hunk-actions {
+  display: flex;
+  gap: 6px;
+  padding: 4px 12px;
+  background: #07070f;
+}
+.diff-hunk-btn {
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-family: 'JetBrains Mono', monospace;
+}
+.diff-hunk-btn--accept { background: rgba(34,197,94,.12); color: #4ade80; border-color: rgba(34,197,94,.3); }
+.diff-hunk-btn--accept:hover { background: rgba(34,197,94,.22); }
+.diff-hunk-btn--reject { background: rgba(239,68,68,.1); color: #f87171; border-color: rgba(239,68,68,.25); }
+.diff-hunk-btn--reject:hover { background: rgba(239,68,68,.2); }
+
+.diff-resolved {
+  padding: 2px 14px;
+  font-size: 10px;
+  font-weight: 600;
+}
+.diff-resolved--accepted { color: #4ade80; }
+.diff-resolved--rejected { color: #f87171; }
+
+/* Review confirm bar */
+.review-confirm-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 14px;
+  background: linear-gradient(90deg, rgba(124,58,237,.14), rgba(124,58,237,.06));
+  border-bottom: 1px solid rgba(124,58,237,.3);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.review-confirm-label {
+  font-size: 11px;
+  color: #c4b5fd;
+  flex: 1;
+  min-width: 0;
+}
+.review-confirm-actions { display: flex; gap: 6px; }
+
+.review-confirm-btn {
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background .15s;
+}
+.review-confirm-btn--accept { background: rgba(34,197,94,.12); color: #4ade80; border-color: rgba(34,197,94,.3); }
+.review-confirm-btn--accept:hover { background: rgba(34,197,94,.22); }
+.review-confirm-btn--reject { background: rgba(239,68,68,.1); color: #f87171; border-color: rgba(239,68,68,.25); }
+.review-confirm-btn--reject:hover { background: rgba(239,68,68,.2); }
+.review-confirm-btn--keep { background: rgba(100,116,139,.12); color: var(--t2); border-color: rgba(100,116,139,.25); }
+.review-confirm-btn--keep:hover { background: rgba(100,116,139,.22); }
+
+/* Tab diff badge */
+.tab-diff-badge {
+  color: #a78bfa;
+  font-size: 9px;
+  margin-left: 2px;
+  line-height: 1;
+}
+
+/* Multi-file diff badge in toolbar */
+.diff-multi-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: rgba(124,58,237,.2);
+  color: #a78bfa;
+  font-weight: 600;
+}

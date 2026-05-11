@@ -95,7 +95,7 @@ function EmptyState({ onSuggest }: { onSuggest: (s: string) => void }) {
   );
 }
 
-export type ChatModeType = 'build' | 'chat' | 'explain' | 'debug' | 'refactor';
+export type ChatModeType = 'build' | 'chat' | 'explain' | 'debug' | 'refactor' | 'agent';
 
 const CHAT_MODES: { id: ChatModeType; label: string; icon: React.ReactNode; hint: string }[] = [
   { id: 'build',   label: 'Build',   icon: <Hammer size={11} />,      hint: 'Generate & edit code' },
@@ -103,6 +103,7 @@ const CHAT_MODES: { id: ChatModeType; label: string; icon: React.ReactNode; hint
   { id: 'explain', label: 'Explain', icon: <BookOpen size={11} />,    hint: 'Explain code or concepts' },
   { id: 'debug',   label: 'Debug',   icon: <Bug size={11} />,         hint: 'Help find & fix bugs' },
   { id: 'refactor',label: 'Refactor',icon: <Wrench size={11} />,      hint: 'Improve existing code' },
+  { id: 'agent',   label: 'Agent',   icon: <Wand2 size={11} />,       hint: 'Autonomous: generate → run → fix loop' },
 ];
 
 export type ToolType = 'webSearch' | 'skipPlanning';
@@ -142,6 +143,8 @@ interface Props {
   // Mode & tools
   chatMode?:            ChatModeType;
   onChatModeChange?:    (mode: ChatModeType) => void;
+  agentStatus?:         { iteration: number; maxIterations: number; phase: 'generating' | 'running' | 'fixing' } | null;
+  reviewModeActive?:    boolean;
 }
 
 export function ChatPanel({
@@ -165,6 +168,8 @@ export function ChatPanel({
   cloneError,
   chatMode = 'build',
   onChatModeChange,
+  agentStatus,
+  reviewModeActive,
 }: Props) {
   const [activeTab, setActiveTab]   = useState<'chat' | 'clone'>('chat');
   const [input, setInput]           = useState('');
@@ -323,17 +328,21 @@ export function ChatPanel({
 
       {/* Mode selector */}
       <div className="chat-mode-bar">
-        {CHAT_MODES.map((m) => (
-          <button
-            key={m.id}
-            className={`chat-mode-btn${chatMode === m.id ? ' active' : ''}`}
-            onClick={() => onChatModeChange?.(m.id)}
-            title={m.hint}
-          >
-            {m.icon}
-            {m.label}
-          </button>
-        ))}
+        {CHAT_MODES.map((m) => {
+          const agentBlocked = m.id === 'agent' && reviewModeActive;
+          return (
+            <button
+              key={m.id}
+              className={`chat-mode-btn${chatMode === m.id ? ' active' : ''}`}
+              onClick={() => { if (!agentBlocked) onChatModeChange?.(m.id); }}
+              title={agentBlocked ? 'Finish reviewing diffs before using Agent mode' : m.hint}
+              style={agentBlocked ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
+            >
+              {m.icon}
+              {m.label}
+            </button>
+          );
+        })}
         {/* Quick-toggle tools */}
         <div className="chat-mode-divider" />
         <button
@@ -367,6 +376,17 @@ export function ChatPanel({
             spellCheck={false}
             autoComplete="off"
           />
+        </div>
+      )}
+
+      {/* Agent progress banner */}
+      {agentStatus && (
+        <div className="agent-banner">
+          <Wand2 size={12} />
+          <span>Agent — Iteration {agentStatus.iteration}/{agentStatus.maxIterations} · {
+            agentStatus.phase === 'generating' ? 'Generating…' :
+            agentStatus.phase === 'running'    ? 'Running…'    : 'Fixing…'
+          }</span>
         </div>
       )}
 
