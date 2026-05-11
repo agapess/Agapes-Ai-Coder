@@ -96,6 +96,9 @@ app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:4173'], crede
 app.use(express.json({ limit: '8mb' }));
 app.use(cookieParser());
 
+const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$/;
+function isValidSlug(s) { return typeof s === 'string' && SLUG_RE.test(s); }
+
 // ── System prompt ─────────────────────────────────────────────
 const SYSTEM_PROMPT = `You are Agapes, an expert AI developer. You build complete, working applications — web apps, scripts, APIs, data tools — exactly as requested.
 
@@ -1106,6 +1109,13 @@ app.post('/api/chat', async (req, res) => {
 
 // ── Publish ───────────────────────────────────────────────────
 
+// ── Slug availability check (public) ──────────────────────────
+app.get('/api/check-slug/:slug', (req, res) => {
+  const { slug } = req.params;
+  if (!isValidSlug(slug)) return res.json({ available: false, reason: 'invalid' });
+  res.json({ available: !slugExists(slug) });
+});
+
 app.get('/api/projects/:id/publish-status', authenticate, requireAuth, async (req, res) => {
   const id  = safeId(req.params.id);
   const row = getPublishedAppByProject(id, req.user.id);
@@ -1137,13 +1147,24 @@ app.post('/api/projects/:id/publish', authenticate, requireAuth, async (req, res
     return res.json({ slug: existing.slug, url: `/app/${existing.slug}` });
   }
 
-  // Generate unique slug
+  // Use custom slug if provided, otherwise generate random
   let slug;
-  let attempts = 0;
-  do {
-    slug = crypto.randomBytes(4).toString('hex');
-    attempts++;
-  } while (slugExists(slug) && attempts < 10);
+  const requested = req.body?.slug?.trim();
+  if (requested) {
+    if (!isValidSlug(requested)) {
+      return res.status(400).json({ error: 'Invalid slug. Use 3–50 lowercase letters, numbers, or hyphens.' });
+    }
+    if (slugExists(requested)) {
+      return res.status(409).json({ error: 'Slug already taken. Choose a different name.' });
+    }
+    slug = requested;
+  } else {
+    let attempts = 0;
+    do {
+      slug = crypto.randomBytes(4).toString('hex');
+      attempts++;
+    } while (slugExists(slug) && attempts < 10);
+  }
 
   publishProject({ slug, projectId: id, userId: req.user.id });
   res.json({ slug, url: `/app/${slug}` });
