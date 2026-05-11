@@ -859,6 +859,43 @@ app.get('/api/projects/:id/git/diff', authenticate, async (req, res) => {
   res.json({ diff: r.ok ? r.stdout : '' });
 });
 
+app.post('/api/projects/:id/git/remote', authenticate, async (req, res) => {
+  const dir = projectDir(safeId(req.params.id));
+  const { url, token } = req.body ?? {};
+  if (!url || typeof url !== 'string') return res.status(400).json({ error: 'url required' });
+  let authUrl, displayUrl;
+  try {
+    const u = new URL(url.startsWith('http') ? url : `https://${url}`);
+    if (token) u.username = String(token);
+    authUrl    = u.toString();
+    u.username = ''; u.password = '';
+    displayUrl = u.hostname + u.pathname;
+  } catch {
+    return res.status(400).json({ error: 'Invalid URL' });
+  }
+  const listR     = await runGit(dir, ['remote']);
+  const hasOrigin = listR.stdout.split('\n').includes('origin');
+  const r = hasOrigin
+    ? await runGit(dir, ['remote', 'set-url', 'origin', authUrl])
+    : await runGit(dir, ['remote', 'add', 'origin', authUrl]);
+  if (!r.ok) return res.status(500).json({ error: r.stderr || 'Failed to set remote' });
+  res.json({ ok: true, displayUrl });
+});
+
+app.post('/api/projects/:id/git/push', authenticate, async (req, res) => {
+  const dir = projectDir(safeId(req.params.id));
+  const r = await runGit(dir, ['push', '-u', 'origin', 'main']);
+  if (!r.ok) return res.status(500).json({ error: r.stderr || 'Push failed' });
+  res.json({ ok: true });
+});
+
+app.post('/api/projects/:id/git/pull', authenticate, async (req, res) => {
+  const dir = projectDir(safeId(req.params.id));
+  const r = await runGit(dir, ['pull', 'origin', 'main']);
+  if (!r.ok) return res.status(500).json({ error: r.stderr || 'Pull failed' });
+  res.json({ ok: true, summary: r.stdout });
+});
+
 app.post('/api/install-packages', authenticate, async (req, res) => {
   const { manager, packages, projectId } = req.body;
   if (!manager || !packages?.length || !projectId) {
