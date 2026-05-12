@@ -14,7 +14,6 @@ const IS_WINDOWS = os.platform() === 'win32';
  */
 function resolveCmd(cmd) {
   if (!IS_WINDOWS) return cmd;
-  // Commands that need .exe on Windows
   const winExeMap = {
     node:   'node.exe',
     python: 'python.exe',
@@ -24,13 +23,13 @@ function resolveCmd(cmd) {
     go:     'go.exe',
     cargo:  'cargo.exe',
     npx:    'npx.cmd',
+    cmd:    'cmd.exe',
   };
   return winExeMap[cmd] ?? cmd;
 }
 
 export class ExecutionManager {
   #pty = null;
-  #tempFile = null;
   #timeoutId = null;
 
   async run({ content, filePath, cwd, onData }) {
@@ -42,14 +41,22 @@ export class ExecutionManager {
       return 127;
     }
 
-    this.#tempFile = path.join(cwd, `_forge_run_${Date.now()}${ext}`);
-    await fs.writeFile(this.#tempFile, content, 'utf-8');
+    // Write the entry file to its actual relative path inside the project folder.
+    // This is critical for multi-file projects: companion files live at their real
+    // paths (e.g. src/game.js), so the entry must also be at its real path so that
+    // require('./game') / import './game' resolve from the correct directory.
+    const relPath = filePath.replace(/\\/g, '/');
+    const diskPath = path.join(cwd, relPath);
+    await fs.mkdir(path.dirname(diskPath), { recursive: true });
+    await fs.writeFile(diskPath, content, 'utf-8');
 
     const { cmd: rawCmd, args } = runtime;
     const cmd = resolveCmd(rawCmd);
     const finalArgs = ext === '.rs'
       ? [...args, '--manifest-path', path.join(cwd, 'Cargo.toml')]
-      : [...args, this.#tempFile];
+      : ext === '.bat' || ext === '.cmd'
+        ? [...args, diskPath]   // cmd /c needs the absolute path
+        : [...args, relPath];
 
     return new Promise((resolve) => {
       try {
@@ -62,7 +69,6 @@ export class ExecutionManager {
         });
       } catch (err) {
         onData(`\r\n${cmd} not found — install it and ensure it is in PATH.\r\n`);
-        this.#cleanup();
         resolve(127);
         return;
       }
@@ -71,7 +77,6 @@ export class ExecutionManager {
 
       this.#pty.onExit(({ exitCode }) => {
         clearTimeout(this.#timeoutId);
-        this.#cleanup();
         resolve(exitCode ?? 0);
       });
 
@@ -97,13 +102,5 @@ export class ExecutionManager {
 
   destroy() {
     this.kill();
-    this.#cleanup();
-  }
-
-  async #cleanup() {
-    if (this.#tempFile) {
-      await fs.unlink(this.#tempFile).catch(() => {});
-      this.#tempFile = null;
-    }
   }
 }

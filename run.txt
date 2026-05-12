@@ -1,1 +1,5 @@
 npm run dev
+
+
+for restart
+node server/index.mjs

@@ -27,7 +27,7 @@ export function ClonePanel({ onClone, isCloning, error }: Props) {
     <div className="clone-panel">
       <div className="clone-title">Clone a URL</div>
       <p className="clone-sub">
-        Paste any URL — FORGE fetches it and rebuilds it as a clean, editable project.
+        Paste any URL — Agapes fetches it and rebuilds it as a clean, editable project.
       </p>
       <form className="clone-form" onSubmit={handleSubmit}>
         <input

@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { Plus, Code2, MonitorSmartphone, Columns2, Download, Settings, X, Cpu, Cloud } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Plus, Code2, MonitorSmartphone, Columns2, Download, Settings, X, Cpu, Cloud, LogOut, ShieldCheck } from 'lucide-react';
 import type { ViewMode, LLMProvider, GeneratedFile } from '../types';
+import type { AuthUser } from '../hooks/useAuth';
 import { ProviderSettings } from './ProviderSettings';
 
 interface Props {
@@ -14,6 +15,10 @@ interface Props {
   activeFilePath:     string;
   llmConfig:          LLMProvider;
   onLlmConfigChange:  (cfg: LLMProvider) => void;
+  user?:              AuthUser | null;
+  onLogout?:          () => void;
+  onSaveApiKey?:      (provider: string, key: string, baseUrl?: string, model?: string) => void;
+  onOpenAdmin?:       () => void;
 }
 
 export function Header({
@@ -22,10 +27,28 @@ export function Header({
   onNewProject, isGenerating,
   files, activeFilePath,
   llmConfig, onLlmConfigChange,
+  user, onLogout, onSaveApiKey, onOpenAdmin,
 }: Props) {
   const [showSettings, setShowSettings] = useState(false);
+  const settingsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showSettings) return;
+    const handler = (e: MouseEvent) => {
+      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
+        setShowSettings(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showSettings]);
 
   const activeFile = files.find((f) => f.path === activeFilePath) ?? files[0] ?? null;
+
+  const handleProviderChange = (cfg: LLMProvider) => {
+    onLlmConfigChange(cfg);
+    // Auto-save is handled by the debounced effect in App.tsx
+  };
 
   const download = () => {
     if (!activeFile) return;
@@ -104,7 +127,7 @@ export function Header({
       </button>
 
       {/* Settings */}
-      <div className="settings-wrap">
+      <div className="settings-wrap" ref={settingsRef}>
         <button className="icon-btn" onClick={() => setShowSettings((s) => !s)} title="Settings">
           {showSettings ? <X size={15} /> : <Settings size={15} />}
         </button>
@@ -113,11 +136,28 @@ export function Header({
           <div className="settings-panel">
             <ProviderSettings
               config={llmConfig}
-              onChange={onLlmConfigChange}
+              onChange={handleProviderChange}
             />
           </div>
         )}
       </div>
+
+      {user && (
+        <div className="user-badge">
+          <strong>{user.username}</strong>
+          {user.isAdmin && <span style={{ color: '#FF5E1A', fontSize: 10 }}>admin</span>}
+        </div>
+      )}
+      {user?.isAdmin && onOpenAdmin && (
+        <button className="logout-btn" onClick={onOpenAdmin} title="Admin panel" style={{ color: '#FF5E1A', borderColor: 'rgba(255,94,26,.3)' }}>
+          <ShieldCheck size={13} />
+        </button>
+      )}
+      {user && onLogout && (
+        <button className="logout-btn" onClick={onLogout} title="Sign out">
+          <LogOut size={13} />
+        </button>
+      )}
     </header>
   );
 }

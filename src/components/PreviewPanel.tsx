@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { RefreshCw, ExternalLink, MonitorSmartphone, Code2 } from 'lucide-react';
 import type { GeneratedFile } from '../types';
 
+// Used only during streaming (srcDoc mode) — after generation the server preview
+// injects this script itself so console logs still reach the terminal.
 const CONSOLE_INTERCEPTOR = `<script>
 (function() {
   const _send = (level, args) => {
@@ -29,9 +31,10 @@ interface Props {
   isGenerating: boolean;
   onShowCode:   () => void;
   writeRef?:    React.MutableRefObject<((data: string) => void) | null>;
+  projectId?:   string;
 }
 
-export function PreviewPanel({ files, isGenerating, onShowCode, writeRef }: Props) {
+export function PreviewPanel({ files, isGenerating, onShowCode, writeRef, projectId }: Props) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [loaded, setLoaded]         = useState(false);
   const iframeRef                   = useRef<HTMLIFrameElement>(null);
@@ -43,7 +46,21 @@ export function PreviewPanel({ files, isGenerating, onShowCode, writeRef }: Prop
   const hasPreview = !!htmlFile;
   const hasFiles   = files.length > 0;
 
-  useEffect(() => { setLoaded(false); }, [htmlFile?.content, refreshKey]);
+  // After streaming completes, use the server-side preview URL so all relative
+  // imports (CSS, JS, ES modules, images) work without client-side inlining.
+  // During streaming we fall back to srcDoc for immediate feedback.
+  const serverPreviewUrl =
+    !isGenerating && projectId && htmlFile
+      ? `/api/projects/${projectId}/preview/${htmlFile.path}`
+      : null;
+
+  // Remount iframe when switching mode, on manual refresh, or when files change after generation
+  const filesHash = files.map((f) => `${f.path}:${f.content.length}`).join('|');
+  const iframeKey = serverPreviewUrl
+    ? `srv-${projectId}-${refreshKey}-${filesHash}`
+    : `doc-${refreshKey}`;
+
+  useEffect(() => { setLoaded(false); }, [iframeKey]);
 
   useEffect(() => {
     if (!writeRef) return;
@@ -64,15 +81,49 @@ export function PreviewPanel({ files, isGenerating, onShowCode, writeRef }: Prop
     return () => window.removeEventListener('message', handler);
   }, [writeRef]);
 
-  const injectedHtml = htmlFile
-    ? (htmlFile.content.replace(/(<head[^>]*>)/i, `$1\n${CONSOLE_INTERCEPTOR}`) ||
-       (CONSOLE_INTERCEPTOR + htmlFile.content))
+  // Inline companion JS/CSS files into HTML for srcDoc mode (streaming)
+  function inlineAssets(html: string): string {
+    const fileMap = new Map(files.map((f) => [f.path, f.content]));
+
+    // <script src="./foo.js"> → <script>...content...</script>
+    html = html.replace(
+      /<script\b([^>]*)\bsrc=["']([^"']+)["']([^>]*)><\/script>/gi,
+      (_match, pre, src, post) => {
+        const key = src.replace(/^\.\//, '');
+        const content = fileMap.get(key) ?? fileMap.get(src);
+        if (content == null) return _match;
+        return `<script${pre}${post}>${content}<\/script>`;
+      },
+    );
+
+    // <link rel="stylesheet" href="./foo.css"> → <style>...content...</style>
+    html = html.replace(
+      /<link\b([^>]*)\bhref=["']([^"']+)["']([^>]*)>/gi,
+      (_match, pre, href, post) => {
+        if (!/rel=["']stylesheet["']/i.test(pre + post)) return _match;
+        const key = href.replace(/^\.\//, '');
+        const content = fileMap.get(key) ?? fileMap.get(href);
+        if (content == null) return _match;
+        return `<style>${content}<\/style>`;
+      },
+    );
+
+    return html;
+  }
+
+  const baseHtml     = htmlFile ? inlineAssets(htmlFile.content) : '';
+  const injectedHtml = baseHtml
+    ? (baseHtml.replace(/(<head[^>]*>)/i, `$1\n${CONSOLE_INTERCEPTOR}`) || (CONSOLE_INTERCEPTOR + baseHtml))
     : '';
 
-  const refresh    = () => setRefreshKey((k) => k + 1);
-  const openInTab  = () => {
+  const refresh   = () => setRefreshKey((k) => k + 1);
+  const openInTab = () => {
     if (!htmlFile) return;
-    const blob = new Blob([htmlFile.content], { type: 'text/html' });
+    if (serverPreviewUrl) {
+      window.open(serverPreviewUrl, '_blank');
+      return;
+    }
+    const blob = new Blob([baseHtml], { type: 'text/html' });
     const url  = URL.createObjectURL(blob);
     window.open(url, '_blank');
     setTimeout(() => URL.revokeObjectURL(url), 2000);
@@ -104,9 +155,12 @@ export function PreviewPanel({ files, isGenerating, onShowCode, writeRef }: Prop
               </div>
             )}
             <iframe
-              key={refreshKey}
+              key={iframeKey}
               ref={iframeRef}
-              srcDoc={injectedHtml}
+              {...(serverPreviewUrl
+                ? { src: serverPreviewUrl }
+                : { srcDoc: injectedHtml }
+              )}
               sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-modals"
               title="App Preview"
               className="preview-iframe"

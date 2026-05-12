@@ -29,21 +29,41 @@ export class OpenAIProvider {
     const client = new OpenAI({
       apiKey,
       baseURL: this.#cfg.baseUrl || 'https://api.openai.com/v1',
+      defaultHeaders: this.#cfg.headers ?? {},
     });
 
-    const stream = await client.chat.completions.create({
+    // Local models (LM Studio, Ollama) may not support stream_options; use large token limit
+    const isLocal = !!this.#cfg.isLocal;
+    const maxTokens = isLocal ? 131072 : 16000;
+
+    const requestParams = {
       model:      this.#cfg.model || 'gpt-4o',
-      max_tokens: 16000,
+      max_tokens: maxTokens,
       stream:     true,
       messages: [
         { role: 'system', content: systemPrompt },
         ...messages.map(toOpenAIMsg),
       ],
-    });
+    };
 
+    // stream_options.include_usage is an OpenAI extension — skip for local models
+    if (!isLocal) {
+      requestParams.stream_options = { include_usage: true };
+    }
+
+    const stream = await client.chat.completions.create(requestParams);
+
+    let inputTokens = 0, outputTokens = 0;
     for await (const chunk of stream) {
       const text = chunk.choices[0]?.delta?.content;
       if (text) res.write(`data: ${JSON.stringify({ text })}\n\n`);
+      if (chunk.usage) {
+        inputTokens  = chunk.usage.prompt_tokens     ?? 0;
+        outputTokens = chunk.usage.completion_tokens ?? 0;
+      }
+    }
+    if (inputTokens || outputTokens) {
+      res.write(`data: ${JSON.stringify({ usage: { inputTokens, outputTokens } })}\n\n`);
     }
   }
 
@@ -54,11 +74,14 @@ export class OpenAIProvider {
     const client = new OpenAI({
       apiKey,
       baseURL: this.#cfg.baseUrl || 'https://api.openai.com/v1',
+      defaultHeaders: this.#cfg.headers ?? {},
     });
+
+    const isLocal = !!this.#cfg.isLocal;
 
     const resp = await client.chat.completions.create({
       model:      this.#cfg.model || 'gpt-4o',
-      max_tokens: 1024,
+      max_tokens: isLocal ? 65536 : 4096,
       messages: [
         { role: 'system', content: systemPrompt },
         ...messages.map(toOpenAIMsg),

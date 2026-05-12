@@ -44,6 +44,11 @@ export class GeminiProvider {
       const text = chunk.text();
       if (text) res.write(`data: ${JSON.stringify({ text })}\n\n`);
     }
+
+    const meta = (await result.response).usageMetadata;
+    if (meta?.promptTokenCount || meta?.candidatesTokenCount) {
+      res.write(`data: ${JSON.stringify({ usage: { inputTokens: meta.promptTokenCount ?? 0, outputTokens: meta.candidatesTokenCount ?? 0 } })}\n\n`);
+    }
   }
 
   async generate(messages, systemPrompt) {

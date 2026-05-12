@@ -70,6 +70,8 @@ export class AnthropicProvider {
     const reader = upstream.body.getReader();
     const dec    = new TextDecoder();
     let   buf    = '';
+    let   inputTokens  = 0;
+    let   outputTokens = 0;
 
     while (true) {
       const { done, value } = await reader.read();
@@ -81,18 +83,33 @@ export class AnthropicProvider {
         const t = line.trim();
         if (!t.startsWith('data: ')) continue;
         const p = t.slice(6).trim();
-        if (p === '[DONE]') return;
+        if (p === '[DONE]') {
+          if (inputTokens || outputTokens) {
+            res.write(`data: ${JSON.stringify({ usage: { inputTokens, outputTokens } })}\n\n`);
+          }
+          return;
+        }
         try {
           const parsed = JSON.parse(p);
+          if (parsed.type === 'message_start' && parsed.message?.usage) {
+            inputTokens  = parsed.message.usage.input_tokens  ?? 0;
+            outputTokens = parsed.message.usage.output_tokens ?? 0;
+          }
+          if (parsed.type === 'message_delta' && parsed.usage) {
+            outputTokens = parsed.usage.output_tokens ?? outputTokens;
+          }
           if (parsed.type === 'content_block_delta' && parsed.delta?.type === 'text_delta') {
             res.write(`data: ${JSON.stringify({ text: parsed.delta.text })}\n\n`);
           }
           if (parsed.type === 'error') throw new Error(parsed.error?.message || 'API error');
         } catch (e) {
-          if (e.message !== 'API error' && !e.message.startsWith('Anthropic')) continue;
-          else throw e;
+          // Re-throw real API errors; skip malformed SSE lines
+          if (e.message === 'API error' || e.message.startsWith('Anthropic')) throw e;
         }
       }
+    }
+    if (inputTokens || outputTokens) {
+      res.write(`data: ${JSON.stringify({ usage: { inputTokens, outputTokens } })}\n\n`);
     }
   }
 
@@ -122,7 +139,7 @@ export class AnthropicProvider {
       method:  'POST',
       headers,
       body:    JSON.stringify({
-        model, max_tokens: 1024, stream: false,
+        model, max_tokens: 4096, stream: false,
         system:   systemPrompt,
         messages: messages.map(toAnthropicMsg),
       }),

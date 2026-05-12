@@ -7,6 +7,8 @@ const RUNTIME_MAP = {
   '.ts':   { cmd: 'npx',     args: ['ts-node'] },
   '.sh':   { cmd: 'bash',    args: [] },
   '.bash': { cmd: 'bash',    args: [] },
+  '.bat':  { cmd: 'cmd',     args: ['/c'] },
+  '.cmd':  { cmd: 'cmd',     args: ['/c'] },
   '.sql':  { cmd: 'sqlite3', args: [':memory:'] },
   '.rb':   { cmd: 'ruby',    args: [] },
   '.go':   { cmd: 'go',      args: ['run'] },
