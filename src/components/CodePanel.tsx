@@ -108,6 +108,30 @@ export function CodePanel({ files, activeFilePath, onSelectFile, streamingFile, 
     onUpdateFile,
   );
 
+  // Accumulate terminal output into terminalOutputRef for auto-fix
+  // This effect runs AFTER TerminalPane's effect sets writeRef.current (child effects run first)
+  const accumulatorActive = useRef(false);
+  useEffect(() => {
+    if (termHeight === 0) {
+      accumulatorActive.current = false;
+      terminalOutputRef.current = '';
+      return;
+    }
+    if (accumulatorActive.current) return;
+    const xtermWriter = writeRef.current;
+    if (!xtermWriter) return;
+    accumulatorActive.current = true;
+    terminalOutputRef.current = '';
+    writeRef.current = (data: string) => {
+      xtermWriter(data);
+      terminalOutputRef.current += data;
+    };
+    return () => {
+      writeRef.current = xtermWriter;
+      accumulatorActive.current = false;
+    };
+  }, [termHeight, writeRef, terminalOutputRef]);
+
   // Auto-fix loop tracking — preserved across useEffect re-fires so we can stop after 3 attempts
   const autoFixAttemptsRef = useRef(0);
   const autoFixErrorsRef   = useRef<string[]>([]);
