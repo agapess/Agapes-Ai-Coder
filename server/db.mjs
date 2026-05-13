@@ -34,6 +34,18 @@ db.exec(`
     user_id TEXT NOT NULL,
     published_at TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS project_features (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    status TEXT NOT NULL DEFAULT 'backlog',
+    category TEXT NOT NULL DEFAULT 'functional',
+    priority INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    updated_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP)
+  );
 `);
 
 // Migrate existing api_keys rows if columns don't exist yet
@@ -131,4 +143,40 @@ export function getAllPublishedApps() {
 
 export function deletePublishedBySlug(slug) {
   db.prepare('DELETE FROM published_apps WHERE slug = ?').run(slug);
+}
+
+// ── Project Features (Kanban) ─────────────────────────────────
+
+export function listFeatures(projectId) {
+  return db.prepare(
+    'SELECT * FROM project_features WHERE project_id = ? ORDER BY priority ASC, id ASC'
+  ).all(projectId);
+}
+
+export function createFeature({ projectId, title, description = null, category = 'functional' }) {
+  const maxRow = db.prepare('SELECT MAX(priority) as m FROM project_features WHERE project_id = ?').get(projectId);
+  const priority = (maxRow?.m ?? -1) + 1;
+  return db.prepare(
+    'INSERT INTO project_features (project_id, title, description, category, priority) VALUES (?, ?, ?, ?, ?) RETURNING *'
+  ).get(projectId, title, description, category, priority);
+}
+
+export function updateFeature(id, { title, description, status, category, priority }) {
+  const fields = [];
+  const vals   = [];
+  if (title       !== undefined) { fields.push('title = ?');       vals.push(title); }
+  if (description !== undefined) { fields.push('description = ?'); vals.push(description); }
+  if (status      !== undefined) { fields.push('status = ?');      vals.push(status); }
+  if (category    !== undefined) { fields.push('category = ?');    vals.push(category); }
+  if (priority    !== undefined) { fields.push('priority = ?');    vals.push(priority); }
+  if (fields.length === 0) return db.prepare('SELECT * FROM project_features WHERE id = ?').get(id);
+  fields.push("updated_at = (CURRENT_TIMESTAMP)");
+  vals.push(id);
+  return db.prepare(
+    `UPDATE project_features SET ${fields.join(', ')} WHERE id = ? RETURNING *`
+  ).get(...vals);
+}
+
+export function deleteFeature(id) {
+  db.prepare('DELETE FROM project_features WHERE id = ?').run(id);
 }

@@ -5,6 +5,7 @@ import { ChatPanel }    from './components/ChatPanel';
 import type { ChatModeType } from './components/ChatPanel';
 import { CodePanel }    from './components/CodePanel';
 import { PreviewPanel } from './components/PreviewPanel';
+import { KanbanBoard }  from './components/KanbanBoard';
 import { AuthPage }       from './components/AuthPage';
 import { PublishDialog }  from './components/PublishDialog';
 import { AdminPanel }     from './components/AdminPanel';
@@ -687,6 +688,9 @@ export function App() {
               writeRef={writeRef}
               projectId={project.projectId}
             />
+          )}
+          {viewMode === 'features' && (
+            <KanbanBoard projectId={project.projectId} />
           )}
         </div>
       </div>

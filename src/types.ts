@@ -1,5 +1,5 @@
 export type MessageRole = 'user' | 'assistant';
-export type ViewMode    = 'code' | 'preview' | 'split';
+export type ViewMode    = 'code' | 'preview' | 'split' | 'features';
 export type Provider    = 'anthropic' | 'local';
 
 export interface Message {

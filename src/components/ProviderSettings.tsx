@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { RefreshCw, Radar } from 'lucide-react';
 import type { LLMProvider, ProviderType } from '../types';
 
 interface Props {
@@ -59,15 +59,48 @@ const BASE_URL_PLACEHOLDERS: Partial<Record<ProviderType, string>> = {
   custom:    'http://...',
 };
 
+type ScanHit = { provider: ProviderType; label: string; url: string };
+
+const LOCAL_SCAN_TARGETS: { provider: ProviderType; label: string; url: string }[] = [
+  { provider: 'lmstudio', label: 'LM Studio', url: 'http://localhost:1234/v1' },
+  { provider: 'ollama',   label: 'Ollama',    url: 'http://localhost:11434'   },
+];
+
 export function ProviderSettings({ config, onChange }: Props) {
   const [testing,       setTesting]       = useState(false);
   const [testResult,    setTestResult]    = useState<string | null>(null);
   const [loadingModels, setLoadingModels] = useState(false);
   const [fetchedModels, setFetchedModels] = useState<string[]>([]);
   const [modelError,    setModelError]    = useState<string | null>(null);
+  const [scanning,      setScanning]      = useState(false);
+  const [scanHits,      setScanHits]      = useState<ScanHit[]>([]);
 
   const update = (patch: Partial<LLMProvider>) => onChange({ ...config, ...patch });
   const provider = config.provider ?? 'anthropic';
+
+  // Auto-detect running local providers (scan common ports)
+  const scanProviders = useCallback(async () => {
+    setScanning(true);
+    setScanHits([]);
+    const hits: ScanHit[] = [];
+    await Promise.all(
+      LOCAL_SCAN_TARGETS.map(async (target) => {
+        try {
+          const res = await fetch('/api/provider-models', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ provider: target.provider, baseUrl: target.url, apiKey: '' }),
+            signal: AbortSignal.timeout(3000),
+          });
+          const data = await res.json();
+          if (res.ok && data.models?.length > 0) hits.push(target);
+        } catch { /* not running */ }
+      })
+    );
+    setScanHits(hits);
+    setScanning(false);
+  }, []);
 
   // Auto-fetch real models for local providers when panel opens or provider changes
   const lastAutoFetch = useRef('');
@@ -148,6 +181,37 @@ export function ProviderSettings({ config, onChange }: Props) {
   return (
     <div className="provider-settings">
       <div className="settings-title">AI Provider</div>
+
+      {/* Auto-detect local providers */}
+      <div className="settings-row" style={{ marginBottom: 4 }}>
+        <button
+          className="settings-fetch-btn"
+          style={{ width: '100%', justifyContent: 'center', gap: 5, padding: '5px 10px' }}
+          onClick={scanProviders}
+          disabled={scanning}
+          title="Scan for running local AI providers (LM Studio, Ollama)"
+        >
+          <Radar size={11} className={scanning ? 'admin-spin' : ''} />
+          {scanning ? 'Scanning…' : 'Auto-detect local providers'}
+        </button>
+        {scanHits.length > 0 && (
+          <div style={{ marginTop: 5, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {scanHits.map((h) => (
+              <button
+                key={h.provider}
+                className="settings-fetch-btn"
+                style={{ width: '100%', justifyContent: 'center', gap: 5, border: '1px solid var(--ok)', color: 'var(--ok)' }}
+                onClick={() => { setFetchedModels([]); setModelError(null); lastAutoFetch.current = ''; update({ provider: h.provider, baseUrl: h.url, model: '' }); setScanHits([]); }}
+              >
+                ✓ {h.label} detected — switch to it
+              </button>
+            ))}
+          </div>
+        )}
+        {!scanning && scanHits.length === 0 && (
+          <span style={{ fontSize: 10, color: 'var(--t3)', display: 'none' }} />
+        )}
+      </div>
 
       {/* Provider selector */}
       <div className="settings-row">

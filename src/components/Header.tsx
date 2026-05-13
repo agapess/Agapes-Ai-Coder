@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { Plus, Code2, MonitorSmartphone, Columns2, Download, Settings, X, Cpu, Cloud, LogOut, ShieldCheck } from 'lucide-react';
+import type React from 'react';
+import { Plus, Code2, MonitorSmartphone, Columns2, Download, Settings, X, Cpu, Cloud, LogOut, ShieldCheck, Sun, Moon, LayoutList } from 'lucide-react';
 import type { ViewMode, LLMProvider, GeneratedFile } from '../types';
 import type { AuthUser } from '../hooks/useAuth';
 import { ProviderSettings } from './ProviderSettings';
@@ -21,6 +22,20 @@ interface Props {
   onOpenAdmin?:       () => void;
 }
 
+function useTheme() {
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    try { return (localStorage.getItem('agapes_theme') as 'dark' | 'light') || 'dark'; }
+    catch { return 'dark'; }
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    try { localStorage.setItem('agapes_theme', theme); } catch { /* ignore */ }
+  }, [theme]);
+
+  return { theme, toggle: () => setTheme((t) => t === 'dark' ? 'light' : 'dark') };
+}
+
 export function Header({
   projectName, onProjectNameChange,
   viewMode, onViewModeChange,
@@ -31,6 +46,7 @@ export function Header({
 }: Props) {
   const [showSettings, setShowSettings] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
+  const { theme, toggle: toggleTheme } = useTheme();
 
   useEffect(() => {
     if (!showSettings) return;
@@ -66,9 +82,10 @@ export function Header({
   };
 
   const views: { id: ViewMode; icon: React.ReactNode; label: string }[] = [
-    { id: 'code',    icon: <Code2 size={13} />,             label: 'Code'    },
-    { id: 'split',   icon: <Columns2 size={13} />,          label: 'Split'   },
-    { id: 'preview', icon: <MonitorSmartphone size={13} />,  label: 'Preview' },
+    { id: 'code',     icon: <Code2 size={13} />,            label: 'Code'     },
+    { id: 'split',    icon: <Columns2 size={13} />,         label: 'Split'    },
+    { id: 'preview',  icon: <MonitorSmartphone size={13} />, label: 'Preview' },
+    { id: 'features', icon: <LayoutList size={13} />,       label: 'Features' },
   ];
 
   return (
@@ -121,6 +138,10 @@ export function Header({
           <Download size={15} />
         </button>
       )}
+
+      <button className="icon-btn" onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}>
+        {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+      </button>
 
       <button className="new-btn" onClick={onNewProject}>
         <Plus size={13} /> New

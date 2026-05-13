@@ -25,6 +25,7 @@ import {
   getPublishedApp, getPublishedAppByProject,
   publishProject, unpublishProject, slugExists,
   getAllPublishedApps, deletePublishedBySlug,
+  listFeatures, createFeature, updateFeature, deleteFeature,
 } from './db.mjs';
 
 const __dirname    = path.dirname(fileURLToPath(import.meta.url));
@@ -505,6 +506,31 @@ app.put('/api/auth/apikeys', authenticate, requireAuth, (req, res) => {
   const { provider, key = '', baseUrl = '', model = '' } = req.body ?? {};
   if (!provider) return res.status(400).json({ error: 'provider required' });
   setUserApiKey(req.user.id, provider, key, baseUrl, model);
+  res.json({ ok: true });
+});
+
+// ── Feature Kanban routes ─────────────────────────────────────
+
+app.get('/api/projects/:projectId/features', authenticate, requireAuth, (req, res) => {
+  res.json({ features: listFeatures(req.params.projectId) });
+});
+
+app.post('/api/projects/:projectId/features', authenticate, requireAuth, (req, res) => {
+  const { title, description, category } = req.body;
+  if (!title?.trim()) return res.status(400).json({ error: 'Title required' });
+  const feature = createFeature({ projectId: req.params.projectId, title: title.trim(), description, category });
+  res.status(201).json({ feature });
+});
+
+app.patch('/api/features/:id', authenticate, requireAuth, (req, res) => {
+  const { title, description, status, category, priority } = req.body;
+  const feature = updateFeature(Number(req.params.id), { title, description, status, category, priority });
+  if (!feature) return res.status(404).json({ error: 'Not found' });
+  res.json({ feature });
+});
+
+app.delete('/api/features/:id', authenticate, requireAuth, (req, res) => {
+  deleteFeature(Number(req.params.id));
   res.json({ ok: true });
 });
 
