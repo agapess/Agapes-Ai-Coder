@@ -1491,6 +1491,18 @@ const server = app.listen(PORT, () => {
   console.log(`   Projects: ${PROJECTS_DIR}\n`);
 });
 
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`\n✗ Port ${PORT} is already in use.`);
+    console.error(`  Kill the existing process first:\n`);
+    console.error(`    Windows: netstat -ano | findstr :${PORT}  →  taskkill /PID <pid> /F`);
+    console.error(`    Mac/Linux: lsof -ti:${PORT} | xargs kill\n`);
+  } else {
+    console.error('Server error:', err);
+  }
+  process.exit(1);
+});
+
 const wss = new WebSocketServer({ noServer: true });
 
 server.on('upgrade', (request, socket, head) => {
